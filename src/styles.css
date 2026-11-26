@@ -398,13 +398,38 @@ td { padding: 7px 8px; font-size: 13px; border-top: 1px solid #eef3f2; vertical-
 .panel h3 { margin: 0 0 4px; font-size: 15px; }
 .split { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 10px; }
 .chart { background: #fff; border-radius: 16px; padding: 10px 12px 6px; }
-.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-wrap {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 42% 48% at 12% 8%, rgba(224, 122, 47, 0.42), transparent 62%),
+    radial-gradient(ellipse 36% 42% at 90% 92%, rgba(255, 255, 255, 0.14), transparent 64%),
+    linear-gradient(155deg, #072e2b 0%, #0d4a45 46%, #16756b 100%);
+}
+.login-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+.login-stack {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+}
 .login-card {
   width: min(420px, 100%);
   background: #fff;
   border-radius: 22px;
   padding: 28px;
-  box-shadow: 0 16px 40px rgba(16, 40, 36, 0.08);
+  box-shadow: 0 28px 70px rgba(4, 18, 16, 0.38);
 }
 .table-wrap { background: #fff; border-radius: 14px; overflow: auto; }
 

@@ -15,7 +15,52 @@ export function Acceso() {
   const [error, setError] = useState("");
   return (
     <div className="login-wrap">
-      <div>
+      <svg className="login-art" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <radialGradient id="loginSun" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#f6c27a" stopOpacity="0.7" />
+            <stop offset="48%" stopColor="#e07a2f" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#e07a2f" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="loginHouse" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
+        <circle cx="150" cy="120" r="260" fill="url(#loginSun)" />
+        <circle cx="1310" cy="790" r="300" fill="#ffffff" opacity="0.07" />
+        <g fill="#ffffff" opacity="0.16">
+          <circle cx="1180" cy="150" r="3" />
+          <circle cx="1248" cy="210" r="2" />
+          <circle cx="1124" cy="96" r="2.2" />
+          <circle cx="980" cy="70" r="1.6" />
+          <circle cx="70" cy="250" r="2" />
+          <circle cx="140" cy="310" r="1.5" />
+        </g>
+        <path d="M0 700 C 220 650, 380 760, 640 710 C 940 652, 1140 780, 1440 720 V 900 H 0 Z" fill="#062421" opacity="0.38" />
+        <g fill="url(#loginHouse)" stroke="#ffffff" strokeOpacity="0.38" strokeWidth="2" strokeLinejoin="round">
+          <path d="M48 690 L150 600 L252 690 V830 H48 Z" />
+          <path d="M228 724 L318 646 L408 724 V830 H228 Z" />
+          <path d="M1048 250 L1140 172 L1232 250 V390 H1048 Z" />
+        </g>
+        <g fill="#f6c27a" opacity="0.85">
+          <rect x="92" y="718" width="28" height="24" rx="2" />
+          <rect x="168" y="718" width="28" height="24" rx="2" />
+          <rect x="286" y="748" width="24" height="20" rx="2" />
+          <rect x="1100" y="286" width="22" height="18" rx="2" />
+          <rect x="1158" y="286" width="22" height="18" rx="2" />
+        </g>
+        <g fill="#062421" opacity="0.55">
+          <path d="M132 760 H168 V830 H132 Z" />
+          <path d="M300 772 H334 V830 H300 Z" />
+          <path d="M1124 334 H1152 V390 H1124 Z" />
+        </g>
+        <g fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M150 438 c0 0 -32 36 -32 58 a32 32 0 0 0 64 0 c0 -22 -32 -58 -32 -58 Z" />
+          <path d="M1336 70 l-24 44 h18 l-22 46 44 -52 h-18 Z" />
+        </g>
+      </svg>
+      <div className="login-stack">
         <ModeSwitch active="admin" />
         <div className="login-card">
           <div className="brand" style={{ color: "#14221f" }}>
