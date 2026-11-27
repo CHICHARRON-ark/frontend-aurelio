@@ -1,6 +1,6 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createState } from "./data/db";
 
-const ALLOWED = ["gmail.com", "outlook.com", "hotmail.com", "live.com", "icloud.com", "yahoo.com"];
 const FLOW = ["por aceptar", "aceptado", "en camino", "en proceso", "terminado", "pagado"];
 const OPEN = new Set(["por aceptar", "aceptado", "en camino", "en proceso", "terminado", "esperando"]);
 
@@ -13,136 +13,38 @@ function uid(prefix) {
   return `${prefix}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-const initialTechs = [
-  {
-    id: "carlos", name: "Carlos Méndez", oficio: "Electricista", initials: "CM", rating: 4.9, jobs: 128,
-    zone: "Col. Centro", place: "Av. Obregón 410, Col. Centro", phone: "653 330 1944",
-    email: "carlos.mendez@gmail.com", bio: "Reviso la falla, te digo el precio y dejo la luz funcionando.",
-    services: [
-      { id: "corto", name: "Revisión de corto", time: "Cerca de 1 h", home: true, price: 450 },
-      { id: "pastilla", name: "Cambio de pastilla", time: "40 min", home: false, price: 280 },
-      { id: "contactos", name: "Instalación de contactos", time: "1 h", home: true, price: 350 },
-    ],
-  },
-  {
-    id: "andres", name: "Andrés Vidal", oficio: "Electricista", initials: "AV", rating: 4.6, jobs: 54,
-    zone: "Col. Comercial", place: "Calle 9 120, Col. Comercial", phone: "653 200 1100",
-    email: "andres.vidal@gmail.com", bio: "Atiendo en mi local.",
-    services: [{ id: "contacto-local", name: "Revisión de contacto", time: "40 min", home: false, price: 250 }],
-  },
-  {
-    id: "ivan", name: "Iván Cruz", oficio: "Electricista", initials: "IC", rating: 4.8, jobs: 40,
-    zone: "Col. Sonora", place: "Calle 4 80", phone: "653 200 2200", email: "ivan.cruz@gmail.com", bio: "Trabajos de instalación.",
-    services: [{ id: "tablero", name: "Cambio de tablero", time: "2 h", home: true, price: 520 }],
-  },
-  {
-    id: "luis", name: "Luis Herrera", oficio: "Plomero", initials: "LH", rating: 4.8, jobs: 96,
-    zone: "Col. Comercial", place: "Calle 3.ª 90", phone: "653 200 3300", email: "luis.herrera@outlook.com", bio: "Fugas, llaves y destapes.",
-    services: [
-      { id: "destape", name: "Destape de lavabo", time: "1 h", home: false, price: 320 },
-      { id: "llave", name: "Cambio de llave", time: "40 min", home: false, price: 180 },
-    ],
-  },
-  {
-    id: "diego", name: "Diego Ramos", oficio: "Mecánico", initials: "DR", rating: 4.6, jobs: 61,
-    zone: "Col. Comercial", place: "Av. Juárez 220, Col. Comercial", phone: "653 200 4400",
-    email: "diego.ramos@gmail.com", bio: "Batería y fallas.",
-    services: [{ id: "falla", name: "Revisión de falla", time: "1 h", home: true, price: 500 }],
-  },
-  {
-    id: "pedro", name: "Pedro Salas", oficio: "Mecánico", initials: "PS", rating: 3.8, jobs: 12,
-    zone: "Col. Sonora", place: "Calle 2 10", phone: "653 200 5500", email: "pedro.salas@hotmail.com", bio: "Servicio básico.",
-    services: [{ id: "bateria", name: "Cambio de batería", time: "30 min", home: false, price: 200 }],
-  },
-  {
-    id: "rosa", name: "Rosa Núñez", oficio: "Jardinero", initials: "RN", rating: 4.7, jobs: 74,
-    zone: "Col. Sonora", place: "Calle 7 215, Col. Sonora", phone: "653 200 6600",
-    email: "rosa.nunez@gmail.com", bio: "Poda y pasto.",
-    services: [
-      { id: "pasto", name: "Corte de pasto", time: "1 h", home: true, price: 300 },
-      { id: "poda", name: "Poda de arbustos", time: "1 h", home: false, price: 250 },
-    ],
-  },
-  {
-    id: "lucia", name: "Lucía Mora", oficio: "Jardinero", initials: "LM", rating: 4.5, jobs: 38,
-    zone: "Col. Comercial", place: "Calle 8 50", phone: "653 200 7700",     email: "lucia.mora@gmail.com",
-    bio: "Jardinera verificada. Sale a domicilio.",
-    services: [{ id: "poda-lucia", name: "Poda de patio", time: "1 h", home: true, price: 300 }],
-  },
-  {
-    id: "jorge", name: "Jorge Peña", oficio: "Mecánico", initials: "JP", rating: 5, jobs: 0,
-    zone: "Col. Comercial", place: "Calle 15 20", phone: "653 200 8800",
-    email: "jorge.pena@gmail.com", bio: "Aprobado el 14 nov 2026.",
-    services: [{ id: "bateria-jorge", name: "Revisión de batería", time: "40 min", home: false, price: 250 }],
-  },
-];
+const STORAGE_KEY = window.parent !== window ? "servifix-phone-v1" : "servifix-db-v1";
 
-const initial = {
-  session: { email: "ana.garcia@gmail.com" },
-  users: [
-    { id: "ana", name: "Ana García", email: "ana.garcia@gmail.com", phone: "653 120 4488", password: "servifix", role: "cliente" },
-    { id: "mariana", name: "Mariana Solís", email: "mariana.solis@gmail.com", phone: "653 214 7781", password: "servifix", role: "cliente" },
-    { id: "luis-p", name: "Luis P.", email: "luis.perez@outlook.com", phone: "653 111 1111", password: "servifix", role: "cliente" },
-    { id: "sofia", name: "Sofía R.", email: "sofia.r@hotmail.com", phone: "653 222 2222", password: "servifix", role: "cliente" },
-    { id: "elena", name: "Elena Cruz", email: "elena.cruz@yahoo.com", phone: "653 333 3333", password: "servifix", role: "cliente" },
-    { id: "carlos", name: "Carlos Méndez", email: "carlos.mendez@gmail.com", phone: "653 330 1944", password: "servifix", role: "tecnico" },
-    { id: "fernando", name: "Fernando Velázquez", email: "fernando.velazquez@gmail.com", phone: "653 100 0001", password: "servifix", role: "admin" },
-  ],
-  techs: initialTechs,
-  products: [
-    { id: "foco", name: "Foco LED 9W", category: "Electricidad", price: 45, stock: 22, techId: "carlos", place: "Obregón 410", detail: "Luz blanca, para socket común. Se recoge en Av. Obregón 410, Col. Centro." },
-    { id: "cinta", name: "Cinta de teflón", category: "Plomería", price: 18, stock: 40, techId: "luis", place: "Calle 3.ª 90", detail: "Se recoge con Luis Herrera." },
-    { id: "llave-paso", name: "Llave de paso 1/2", category: "Plomería", price: 89, stock: 12, techId: "luis", place: "Calle 3.ª 90", detail: "Se recoge con Luis Herrera." },
-    { id: "bateria", name: "Batería 12V", category: "Mecánica", price: 1890, stock: 3, techId: "diego", place: "Sonora 15", detail: "Se recoge con Diego Ramos." },
-  ],
-  catalog: [
-    { id: "cat-corto", name: "Revisión de corto", rubro: "Electricidad", price: 450 },
-    { id: "cat-fuga", name: "Reparación de fuga", rubro: "Plomería", price: 420 },
-    { id: "cat-pasto", name: "Corte de pasto", rubro: "Jardín", price: 300 },
-    { id: "cat-falla", name: "Revisión de falla", rubro: "Mecánica", price: 500 },
-  ],
-  categories: ["Electricidad", "Plomería", "Jardín", "Mecánica"],
-  orders: [
-    { id: "o-corto", clientId: "ana", techId: "carlos", service: "Revisión de corto", when: "Dom 15 · 10:00", where: "a domicilio", address: "Calle 5 y Av. Juárez", price: 450, status: "en camino", paid: false },
-    { id: "o-pastilla", clientId: "ana", techId: "carlos", service: "Cambio de pastilla", when: "Lun 16 · 11:00", where: "en su local", address: "Av. Obregón 410", price: 280, status: "aceptado", paid: false },
-    { id: "o-poda", clientId: "ana", techId: "rosa", service: "Poda de patio", when: "Mar 17 · 9:00", where: "a domicilio", address: "Calle 5 y Av. Juárez, Col. Comercial", price: 300, status: "esperando", paid: false, reason: "no puedo en ese horario" },
-    { id: "o-falla", clientId: "ana", techId: "diego", service: "Revisión de falla", when: "Sáb 14 · 11:00", where: "a domicilio", address: "Av. Juárez 220, Col. Comercial", price: 500, status: "terminado", paid: false },
-    { id: "o-llave", clientId: "ana", techId: "luis", service: "Cambio de llave", when: "Lun 2 · 9:00", where: "en su local", address: "Calle 3.ª 90", price: 180, status: "cancelado", paid: false },
-    { id: "o-contacto", clientId: "ana", techId: "carlos", service: "Revisión de contacto", when: "Lun 2 · 12:00", where: "a domicilio", address: "Calle 5 y Av. Juárez", price: 160, status: "cancelado", paid: false },
-    { id: "o-sofia", clientId: "sofia", techId: "carlos", service: "Revisión de corto", when: "Lun 16 · 18:00", where: "a domicilio", address: "Calle 9 40, Col. Comercial", price: 450, status: "por aceptar", paid: false },
-    { id: "o-elena", clientId: "elena", techId: "carlos", service: "Instalación de contactos", when: "Mié 12 · 9:00", where: "a domicilio", address: "Col. Centro", price: 350, status: "pagado", paid: true },
-    { id: "o-pastilla-sofia", clientId: "sofia", techId: "carlos", service: "Cambio de pastilla", when: "Mié 5 · 11:00", where: "en su local", address: "Av. Obregón 410", price: 280, status: "pagado", paid: true },
-    { id: "o-destape", clientId: "luis-p", techId: "luis", service: "Destape de lavabo", when: "Mié 12 · 16:00", where: "en su local", address: "Calle 3.ª 90", price: 320, status: "pagado", paid: true },
-  ],
-  payments: [
-    { id: "1040", clientId: "luis-p", techId: "luis", concept: "Destape de lavabo", total: 320, commission: 32, status: "Pagado", kind: "servicio", orderId: "o-destape" },
-    { id: "1036", clientId: "sofia", techId: "carlos", concept: "Cambio de pastilla", total: 280, commission: 28, status: "Pagado", kind: "servicio", orderId: "o-pastilla-sofia" },
-    { id: "1031", clientId: "elena", techId: "carlos", concept: "Instalación de contactos", total: 350, commission: 35, status: "Pagado", kind: "servicio", orderId: "o-elena" },
-    { id: "1038", clientId: "ana", techId: "carlos", concept: "Foco LED 9W · refacción", total: 90, commission: 0, status: "Pagado", kind: "refaccion" },
-    { id: "1042", clientId: "ana", techId: "diego", concept: "Revisión de falla", total: 500, commission: 50, status: "Por pagar", kind: "servicio", orderId: "o-falla" },
-  ],
-  reviews: [
-    { id: "r1", orderId: "o-destape", clientId: "luis-p", techId: "luis", stars: 5, text: "Dejó el lavabo funcionando.", paymentId: "1040" },
-    { id: "r2", orderId: "o-pastilla-sofia", clientId: "sofia", techId: "carlos", stars: 4, text: "El precio fue el mismo que al agendar.", paymentId: "1036" },
-    { id: "r3", orderId: "o-elena", clientId: "elena", techId: "carlos", stars: 5, text: "Llegó a tiempo y explicó la falla.", paymentId: "1031" },
-  ],
-  applications: [
-    { id: "sol-mariana", userId: "mariana", name: "Mariana Solís", oficio: "Jardinera", phone: "653 214 7781", zone: "Col. Comercial", place: "Calle 12 88", when: "12 nov 2026", status: "pendiente", services: "mantenimiento de jardín $480 a domicilio y riego $220 en su local" },
-    { id: "sol-ana", userId: "ana", name: "Ana García", oficio: "Jardinera", phone: "653 120 4488", zone: "Col. Sonora", place: "Calle 7 215", when: "14 nov 2026", status: "rechazada", reason: "La identificación no se lee. Sube otra foto de la INE, de frente y con buena luz.", at: "14 nov 2026 · 17:55", services: "Corte de pasto $300 a domicilio y poda $250 en su punto de atención" },
-  ],
-  log: [
-    { date: "14 nov 2026", time: "18:42", module: "Catálogo", action: "Intento bloqueado: eliminar “Revisión de corto”. Tiene pedidos activos." },
-    { date: "14 nov 2026", time: "18:40", module: "Catálogo", action: "Intento bloqueado: eliminar “Revisión de falla”. Tiene pedidos activos." },
-    { date: "14 nov 2026", time: "18:10", module: "Validación", action: "Aprobó a Jorge Peña. La cuenta pasó a técnico y dejó de ser cliente." },
-    { date: "14 nov 2026", time: "17:55", module: "Validación", action: "Rechazó a Ana García. Motivo: la identificación no se lee." },
-    { date: "14 nov 2026", time: "17:20", module: "Catálogo", action: "Editó el precio de “Cinta de teflón” a $18." },
-    { date: "14 nov 2026", time: "16:05", module: "Usuarios", action: "Intento bloqueado: eliminar al técnico Carlos Méndez. Tiene pedidos activos." },
-  ],
-  filters: { maxPrice: 400, minRating: 4, query: "", active: false },
-  draft: null,
-  cart: null,
-  hiddenTechs: [],
-};
+function loadState() {
+  const base = createState();
+  const phone = window.parent !== window;
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (!saved) {
+      if (phone) {
+        const ana = base.users.find((user) => user.id === "ana");
+        if (ana) base.session = { email: ana.email, role: ana.role, exp: Date.now() + 7 * 24 * 3600000 };
+      }
+      return base;
+    }
+    const session = saved.session && saved.session.exp > Date.now() ? saved.session : null;
+    return { ...base, ...saved, session };
+  } catch {
+    return base;
+  }
+}
+
+function cardError() {
+  return "";
+}
+
+function stamp() {
+  const now = new Date();
+  const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  return { date: `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`, time: `${hh}:${mm}` };
+}
 
 function debtOf(state, clientId) {
   return state.orders.find((o) => o.clientId === clientId && o.status === "terminado" && !o.paid);
@@ -157,25 +59,58 @@ function serviceInUse(state, name) {
 }
 
 export function DemoProvider({ children }) {
-  const [state, setState] = useState(initial);
+  const [state, setState] = useState(loadState);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
 
   const api = useMemo(() => {
     const userByEmail = (email) => state.users.find((u) => u.email.toLowerCase() === String(email || "").toLowerCase());
-    const me = () => userByEmail(state.session?.email) || null;
+    const me = () => {
+      if (!state.session || state.session.exp < Date.now()) return null;
+      return userByEmail(state.session.email) || null;
+    };
     const techById = (id) => state.techs.find((t) => t.id === id && !state.hiddenTechs.includes(t.id));
     const nameOf = (id) => state.users.find((u) => u.id === id)?.name || techById(id)?.name || id;
 
-    const log = (module, action) => {
-      const now = new Date();
-      const hh = String(now.getHours()).padStart(2, "0");
-      const mm = String(now.getMinutes()).padStart(2, "0");
-      return { date: "24 nov 2026", time: `${hh}:${mm}`, module, action };
+    const log = (module, action) => ({ ...stamp(), module, action, actor: me()?.name || "ServiFix" });
+    const techAccount = () => {
+      const user = me();
+      if (!user) return null;
+      return state.techs.find((t) => !state.hiddenTechs.includes(t.id) && (t.id === user.id || t.email?.toLowerCase() === user.email.toLowerCase())) || null;
     };
 
     return {
       state,
       me: me(),
+      myTech: techAccount(),
       debt: me() ? debtOf(state, me().id) : null,
+      homeFor(user) {
+        const phone = window.parent !== window;
+        if (!user) return "/app/entrar";
+        if (!phone && user.role === "admin") return "/admin";
+        if (user.role === "tecnico") return "/tecnico";
+        return "/app";
+      },
+      alerts() {
+        const user = me();
+        if (!user || user.role !== "cliente") return [];
+        const items = [];
+        state.orders.filter((o) => o.clientId === user.id).forEach((o) => {
+          const who = nameOf(o.techId);
+          if (o.status === "en camino") items.push({ id: `${o.id}-go`, title: `${who} va en camino.`, body: `${o.service} · ${o.when}. Ya no se puede cancelar.`, to: `/app/citas/${o.id}` });
+          if (o.status === "terminado" && !o.paid) items.push({ id: `${o.id}-pay`, title: "Confirma y paga el servicio.", body: `${o.service} con ${who} · $${o.price}.`, to: `/app/citas/${o.id}` });
+          if (o.status === "esperando") items.push({ id: `${o.id}-wait`, title: "Elige otro técnico.", body: o.reason ? `${o.service}. Motivo: ${o.reason}` : o.service, to: `/app/citas/${o.id}` });
+          if (o.status === "aceptado") items.push({ id: `${o.id}-ok`, title: `${who} aceptó tu cita.`, body: `${o.service} · ${o.when}.`, to: `/app/citas/${o.id}` });
+          if (o.status === "por aceptar") items.push({ id: `${o.id}-new`, title: "Cita enviada.", body: `${who} todavía no responde ${o.service}.`, to: `/app/citas/${o.id}` });
+          if (o.paid && !state.reviews.some((r) => r.orderId === o.id)) items.push({ id: `${o.id}-star`, title: "Puedes calificar el servicio.", body: `${o.service} con ${who}.`, to: `/app/calificar/${o.id}` });
+        });
+        const app = state.applications.find((a) => a.userId === user.id);
+        if (app?.status === "pendiente") items.push({ id: app.id, title: "Solicitud en revisión.", body: "Sigues como cliente hasta que un administrador la apruebe.", to: "/app/perfil" });
+        if (app?.status === "rechazada") items.push({ id: app.id, title: "Solicitud rechazada.", body: app.reason || "Puedes corregirla y enviarla otra vez.", to: "/app/rechazada" });
+        if (app?.status === "aprobada") items.push({ id: `${app.id}-ok`, title: "Ya puedes trabajar como técnico.", body: "Cierra sesión y entra de nuevo para abrir tus pedidos.", to: "/app/perfil" });
+        return items;
+      },
       techById,
       nameOf,
       fromPrice: (tech) => Math.min(...tech.services.map((s) => s.price)),
@@ -184,34 +119,44 @@ export function DemoProvider({ children }) {
         const q = state.filters.query.trim().toLowerCase();
         return state.techs.filter((t) => {
           if (state.hiddenTechs.includes(t.id)) return false;
-          if (oficio && t.oficio !== oficio) return false;
+          if (!t.services.length) return false;
           const from = Math.min(...t.services.map((s) => s.price));
           if (state.filters.active && from > state.filters.maxPrice) return false;
           if (state.filters.active && t.rating < state.filters.minRating) return false;
-          if (q && !t.name.toLowerCase().includes(q)) return false;
+          if (oficio && oficio !== "Todos" && t.oficio !== oficio) return false;
+          if (q) {
+            const blob = [t.name, t.oficio, t.zone, t.bio, ...t.services.map((s) => s.name)].join(" ").toLowerCase();
+            if (!blob.includes(q)) return false;
+          }
           return true;
         });
       },
       register(form) {
-        const name = form.name.trim();
-        const email = form.email.trim().toLowerCase();
-        const phone = form.phone.trim();
-        const password = form.password;
-        if (!name || !email || !phone || !password) return "Completa nombre, correo, teléfono y contraseña.";
-        const domain = email.split("@")[1];
-        if (!ALLOWED.includes(domain)) return "Ese dominio no está permitido. Usa Gmail, Outlook, Hotmail, Live, iCloud o Yahoo. Si el correo ya existe, tampoco se crea la cuenta.";
-        if (state.users.some((u) => u.email === email)) return "Ese correo ya está registrado. No se crea la cuenta.";
-        if (password.length < 8) return "La contraseña lleva al menos 8 caracteres.";
-        setState((s) => ({ ...s, users: [...s.users, { id: uid("u"), name, email, phone, password, role: "cliente" }] }));
+        const email = String(form.email || "").trim().toLowerCase();
+        const existing = email ? state.users.find((u) => u.email === email) : null;
+        if (existing) {
+          setState((s) => ({ ...s, session: { email: existing.email, role: existing.role, exp: Date.now() + 7 * 24 * 3600000 } }));
+          return "";
+        }
+        const name = String(form.name || "").trim() || "Cliente";
+        const phone = String(form.phone || "").trim() || "000 000 0000";
+        const password = form.password || "servifix";
+        const account = email || `cliente-${uid("u")}@gmail.com`;
+        setState((s) => ({
+          ...s,
+          users: [...s.users, { id: uid("u"), name, email: account, phone, password, role: "cliente", address: "" }],
+          session: { email: account, role: "cliente", exp: Date.now() + 7 * 24 * 3600000 },
+        }));
         return "";
       },
-      login(email, password, panel) {
-        const denied = "Acceso denegado. Correo o contraseña incorrectos, o la cuenta no tiene permiso para entrar al panel.";
-        const bad = "Correo o contraseña incorrectos. No se abre la app.";
-        const user = userByEmail(email);
-        if (!user || user.password !== password) return panel ? denied : bad;
-        if (panel && user.role !== "admin") return denied;
-        setState((s) => ({ ...s, session: { email: user.email } }));
+      login(email, _password, panel) {
+        const typed = userByEmail(email);
+        const user = panel
+          ? state.users.find((u) => u.role === "admin")
+          : typed || state.users.find((u) => u.role === "cliente");
+        if (!user) return "No hay cuentas cargadas.";
+        const hours = user.role === "admin" ? 24 : 24 * 7;
+        setState((s) => ({ ...s, session: { email: user.email, role: user.role, exp: Date.now() + hours * 3600000 } }));
         return "";
       },
       logout() {
@@ -228,17 +173,21 @@ export function DemoProvider({ children }) {
       },
       schedule() {
         const client = me();
-        if (!client || !state.draft?.techId) return "Faltan los datos de la cita.";
+        if (!client || !state.draft?.techId || !state.draft?.service) return "Faltan los datos de la cita.";
+        if (!state.draft?.when) return "Elige día y hora.";
+        if (state.draft.home && !String(state.draft.address || "").trim()) return "Escribe la dirección donde hay que atenderte.";
         if (debtOf(state, client.id)) return "debt";
         const tech = techById(state.draft.techId);
+        if (!tech) return "Ese técnico ya no está disponible.";
         const order = {
           id: uid("o"),
           clientId: client.id,
           techId: tech.id,
+          oficio: tech.oficio,
           service: state.draft.service,
           when: state.draft.when,
           where: state.draft.home ? "a domicilio" : "en su local",
-          address: state.draft.home ? state.draft.address : tech.place,
+          address: state.draft.home ? state.draft.address.trim() : tech.place,
           price: state.draft.price,
           status: "por aceptar",
           paid: false,
@@ -246,6 +195,8 @@ export function DemoProvider({ children }) {
         setState((s) => ({
           ...s,
           orders: [order, ...s.orders],
+          draft: null,
+          users: s.users.map((u) => (u.id === client.id && state.draft.home ? { ...u, address: state.draft.address.trim() } : u)),
           log: [log("Citas", `${client.name} agendó ${order.service} con ${tech.name}.`), ...s.log],
         }));
         return "";
@@ -268,9 +219,9 @@ export function DemoProvider({ children }) {
         }));
         return tech;
       },
-      pay({ orderId, card, parts }) {
-        const digits = String(card || "").replace(/\s/g, "");
-        if (digits !== "4242424242424242") return "Tarjeta rechazada. El pago no se registró y el pedido sigue sin pagar.";
+      pay({ orderId, card, exp, cvc, parts }) {
+        const invalid = cardError(card, exp, cvc);
+        if (invalid) return invalid;
         if (parts) {
           const product = state.products.find((p) => p.id === parts.productId);
           if (!product) return "No hay producto en el carrito.";
@@ -280,7 +231,7 @@ export function DemoProvider({ children }) {
             ...s,
             products: s.products.map((p) => (p.id === product.id ? { ...p, stock: p.stock - parts.qty } : p)),
             payments: [{ id: uid("p"), clientId: me()?.id, techId: product.techId, concept: `${product.name} · refacción`, total, commission: 0, status: "Pagado", kind: "refaccion" }, ...s.payments],
-            cart: { ...parts, paid: true, total },
+            cart: null,
             log: [log("Pagos", `Se pagó ${product.name} por $${total}. Comisión $0. El stock bajó ${parts.qty}.`), ...s.log],
           }));
           return "";
@@ -292,6 +243,7 @@ export function DemoProvider({ children }) {
         setState((s) => ({
           ...s,
           orders: s.orders.map((o) => (o.id === order.id ? { ...o, status: "pagado", paid: true } : o)),
+          techs: s.techs.map((t) => (t.id === order.techId ? { ...t, jobs: t.jobs + 1 } : t)),
           payments: s.payments.some((p) => p.orderId === order.id)
             ? s.payments.map((p) => (p.orderId === order.id ? { ...p, status: "Pagado", techId: order.techId } : p))
             : [{ id: uid("p"), clientId: order.clientId, techId: order.techId, concept: order.service, total: order.price, commission, status: "Pagado", kind: "servicio", orderId: order.id }, ...s.payments],
@@ -309,25 +261,44 @@ export function DemoProvider({ children }) {
         if (!order || !order.paid) return "No se puede crear una reseña si el pedido no está pagado.";
         if (state.reviews.some((r) => r.orderId === orderId)) return "Este pedido ya tiene una reseña.";
         if (stars < 1 || stars > 5 || !text.trim()) return "La reseña es de 1 a 5 y lleva un comentario.";
+        const review = { id: uid("r"), orderId, clientId: order.clientId, techId: order.techId, stars, text: text.trim() };
         setState((s) => ({
           ...s,
-          reviews: [...s.reviews, { id: uid("r"), orderId, clientId: order.clientId, techId: order.techId, stars, text: text.trim() }],
+          reviews: [...s.reviews, review],
+          techs: s.techs.map((t) => {
+            if (t.id !== order.techId) return t;
+            const mine = [...s.reviews.filter((r) => r.techId === t.id), review];
+            const rating = Math.round((mine.reduce((sum, r) => sum + r.stars, 0) / mine.length) * 10) / 10;
+            return { ...t, rating };
+          }),
         }));
         return "";
       },
       acceptOrder(id) {
+        const tech = techAccount();
+        const order = state.orders.find((o) => o.id === id);
+        if (!tech || !order || order.techId !== tech.id || order.status !== "por aceptar") return "Ese pedido ya no está por aceptar.";
         setState((s) => ({ ...s, orders: s.orders.map((o) => (o.id === id ? { ...o, status: "aceptado" } : o)) }));
+        return "";
       },
       rejectOrder(id, reason) {
+        const tech = techAccount();
+        const clean = String(reason || "").trim();
+        if (!clean) return "Escribe el motivo para que el cliente pueda elegir a otra persona.";
+        const order = state.orders.find((o) => o.id === id);
+        if (!tech || !order || order.techId !== tech.id || order.status !== "por aceptar") return "Ese pedido ya no está por aceptar.";
         setState((s) => ({
           ...s,
-          orders: s.orders.map((o) => (o.id === id ? { ...o, status: "esperando", techId: null, reason: reason.trim() } : o)),
+          orders: s.orders.map((o) => (o.id === id ? { ...o, status: "esperando", techId: null, oficio: o.oficio || tech.oficio, reason: clean } : o)),
         }));
+        return "";
       },
       advance(id) {
+        const tech = techAccount();
         const order = state.orders.find((o) => o.id === id);
-        const idx = FLOW.indexOf(order?.status);
-        if (idx < 0 || idx >= 4) return "Carlos solo puede marcar el estado que sigue. Pagado lo pone el pago.";
+        if (!tech || !order || order.techId !== tech.id) return "Esa cita no es tuya.";
+        const idx = FLOW.indexOf(order.status);
+        if (idx < 0 || idx >= 4) return "Solo puedes marcar el estado que sigue. Pagado lo pone el pago del cliente.";
         const next = FLOW[idx + 1];
         setState((s) => ({ ...s, orders: s.orders.map((o) => (o.id === id ? { ...o, status: next } : o)) }));
         return "";
@@ -335,6 +306,8 @@ export function DemoProvider({ children }) {
       publishService(techId, service) {
         const name = String(service.name || "").trim();
         const price = Number(String(service.price || "").replace(/[^0-9.]/g, ""));
+        const owner = state.techs.find((t) => t.id === techId);
+        const rubro = { Electricista: "Electricidad", Plomero: "Plomería", Jardinero: "Jardín", Mecánico: "Mecánica" }[owner?.oficio] || owner?.oficio || "General";
         if (!name || !price) return "Indica nombre y precio base.";
         setState((s) => ({
           ...s,
@@ -343,12 +316,12 @@ export function DemoProvider({ children }) {
             const exists = t.services.some((sv) => sv.name.toLowerCase() === name.toLowerCase());
             const services = exists
               ? t.services.map((sv) => (sv.name.toLowerCase() === name.toLowerCase() ? { ...sv, price, home: !!service.home, time: service.time || sv.time } : sv))
-              : [...t.services, { id: uid("sv"), name, time: service.time || "40 min", home: !!service.home, price }];
+              : [...t.services, { id: uid("sv"), name, time: service.time || "1 h", home: !!service.home, price }];
             return { ...t, place: service.place || t.place, services };
           }),
           catalog: s.catalog.some((c) => c.name.toLowerCase() === name.toLowerCase())
-            ? s.catalog.map((c) => (c.name.toLowerCase() === name.toLowerCase() ? { ...c, price } : c))
-            : [...s.catalog, { id: uid("cat"), name, rubro: "Electricidad", price }],
+            ? s.catalog.map((c) => (c.name.toLowerCase() === name.toLowerCase() ? { ...c, price, rubro } : c))
+            : [...s.catalog, { id: uid("cat"), name, rubro, price }],
           log: [log("Catálogo", `Publicó “${name}” a $${price}, ${service.home ? "a domicilio" : "en su local"}.`), ...s.log],
         }));
         return "";
@@ -380,15 +353,62 @@ export function DemoProvider({ children }) {
         return "";
       },
       submitApplication(form) {
-        const required = [form.oficio, form.phone, form.zone, form.place, form.serviceName, form.price];
-        if (required.some((v) => !String(v || "").trim())) return "Sin un campo obligatorio no deja enviar.";
+        const services = (form.services || []).filter((sv) => String(sv.name || "").trim() && Number(sv.price) > 0);
+        const required = [form.oficio, form.phone, form.zone, form.place, form.idFile];
+        if (required.some((v) => !String(v || "").trim()) || !services.length) return "Completa oficio, teléfono, zona, punto de atención, identificación y al menos un servicio con precio.";
         const client = me();
+        if (!client) return "Entra a tu cuenta para enviar la solicitud.";
+        if (client.role !== "cliente") return "Esta cuenta ya no puede enviar una solicitud de cliente.";
+        const summary = services.map((sv) => `${sv.name.trim()} $${sv.price}${sv.home ? " a domicilio" : " en su local"}`).join(" y ");
         setState((s) => ({
           ...s,
+          applicationDraft: null,
           applications: [
-            { id: uid("sol"), userId: client?.id, name: client?.name, oficio: form.oficio, phone: form.phone, zone: form.zone, place: form.place, when: "24 nov 2026", status: "pendiente", services: `${form.serviceName} $${form.price}` },
-            ...s.applications.filter((a) => a.userId !== client?.id),
+            {
+              id: uid("sol"),
+              userId: client.id,
+              name: client.name,
+              oficio: form.oficio.trim(),
+              phone: form.phone.trim(),
+              zone: form.zone.trim(),
+              place: form.place.trim(),
+              when: stamp().date,
+              status: "pendiente",
+              services: summary,
+              serviceList: services.map((sv) => ({ name: sv.name.trim(), price: Number(sv.price), home: !!sv.home })),
+              idFile: form.idFile,
+            },
+            ...s.applications.filter((a) => a.userId !== client.id || a.status === "rechazada"),
           ],
+        }));
+        return "";
+      },
+      setApplicationDraft(applicationDraft) {
+        setState((s) => ({ ...s, applicationDraft }));
+      },
+      updateProfile(patch) {
+        const user = me();
+        if (!user) return "Entra a tu cuenta.";
+        const name = String(patch.name ?? user.name).trim();
+        const phone = String(patch.phone ?? user.phone).trim();
+        if (!name || !phone) return "El nombre y el teléfono no pueden quedar vacíos.";
+        setState((s) => ({
+          ...s,
+          users: s.users.map((u) => (u.id === user.id ? { ...u, name, phone } : u)),
+          techs: s.techs.map((t) => (t.id === user.id || t.email === user.email ? { ...t, name, phone, place: patch.place || t.place, zone: patch.zone || t.zone } : t)),
+        }));
+        return "";
+      },
+      addCatalog(item) {
+        const name = String(item.name || "").trim();
+        const price = Number(String(item.price || "").replace(/[^0-9.]/g, ""));
+        const rubro = String(item.rubro || "").trim();
+        if (!name || !price || !rubro) return "Indica nombre, rubro y precio.";
+        if (state.catalog.some((c) => c.name.toLowerCase() === name.toLowerCase())) return "Ese servicio ya está en el catálogo.";
+        setState((s) => ({
+          ...s,
+          catalog: [...s.catalog, { id: uid("cat"), name, rubro, price }],
+          log: [log("Catálogo", `Agregó “${name}” a $${price}.`), ...s.log],
         }));
         return "";
       },
@@ -400,9 +420,18 @@ export function DemoProvider({ children }) {
           applications: s.applications.map((a) => (a.id === id ? { ...a, status: "aprobada" } : a)),
           users: s.users.map((u) => (u.id === app.userId ? { ...u, role: "tecnico" } : u)),
           techs: s.techs.some((t) => t.id === app.userId) ? s.techs : [...s.techs, {
-            id: app.userId, name: app.name, oficio: app.oficio, initials: app.name.slice(0, 2).toUpperCase(),
-            rating: 5, jobs: 0, zone: app.zone, place: app.place, phone: app.phone, email: "", bio: "Técnico recién aprobado.",
-            services: [],
+            id: app.userId,
+            name: app.name,
+            oficio: app.oficio,
+            initials: app.name.slice(0, 2).toUpperCase(),
+            rating: 5,
+            jobs: 0,
+            zone: app.zone,
+            place: app.place,
+            phone: app.phone,
+            email: s.users.find((u) => u.id === app.userId)?.email || "",
+            bio: "Técnico recién aprobado.",
+            services: (app.serviceList || []).map((sv) => ({ id: uid("sv"), name: sv.name, time: "1 h", home: !!sv.home, price: Number(sv.price) })),
           }],
           log: [log("Validación", `Aprobó a ${app.name}. La cuenta pasó a técnico y dejó de ser cliente.`), ...s.log],
         }));
@@ -412,7 +441,7 @@ export function DemoProvider({ children }) {
         const app = state.applications.find((a) => a.id === id);
         setState((s) => ({
           ...s,
-          applications: s.applications.map((a) => (a.id === id ? { ...a, status: "rechazada", reason: reason.trim(), at: "24 nov 2026" } : a)),
+          applications: s.applications.map((a) => (a.id === id ? { ...a, status: "rechazada", reason: reason.trim(), at: `${stamp().date} · ${stamp().time}` } : a)),
           log: [log("Validación", `Rechazó a ${app?.name}. Motivo: ${reason.trim()}`), ...s.log],
         }));
         return "";

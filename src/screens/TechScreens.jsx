@@ -6,23 +6,20 @@ import { useDemo } from "../demo";
 export function Pedidos() {
   const nav = useNavigate();
   const demo = useDemo();
-  const mine = demo.state.orders.filter((o) => o.techId === "carlos" || (o.status === "esperando" && !o.techId));
+  const tech = demo.myTech;
+  const mine = demo.state.orders.filter((o) => o.techId === tech?.id);
   const fresh = mine.filter((o) => o.status === "por aceptar").length;
   return (
     <TechPhone tab="pedidos">
-      <span className="mode">App del técnico</span>
       <div className="row">
         <h1 className="t">Pedidos</h1>
         <span className="pill warn">{fresh} nuevo{fresh === 1 ? "" : "s"}</span>
       </div>
-      <p className="lead">Carlos Méndez · el aviso entra en cuanto el usuario agenda.</p>
-      <div className="card flat">
-        <div className="row"><b>Pedido cancelado</b><span className="pill mute">Cancelado</span></div>
-        <div className="small">Ana García canceló Revisión de contacto (lun 2 · 12:00). Estaba Aceptado y aún no ibas en camino. Es un trabajo de electricidad.</div>
-      </div>
-      {mine.filter((o) => o.techId === "carlos" || o.status === "por aceptar").map((o) => (
+      <p className="lead">{tech?.name} · {tech?.oficio}</p>
+      {mine.length === 0 && <p className="note">Cuando un cliente agende contigo, el pedido aparece aquí.</p>}
+      {mine.map((o) => (
         <button className="card" key={o.id} onClick={() => nav(o.status === "por aceptar" ? `/tecnico/pedido/${o.id}` : `/tecnico/estado/${o.id}`)}>
-          <div className="row"><b>{o.service} · ${o.price}</b><span className="pill warn">{o.status}</span></div>
+          <div className="row"><b>{o.service} · ${o.price}</b><span className={`pill ${statusPill(o.status)}`}>{statusLabel(o.status)}</span></div>
           <div className="small">{demo.nameOf(o.clientId)} · {o.when} · {o.where}<br />{o.address}</div>
         </button>
       ))}
@@ -34,25 +31,24 @@ export function PedidoNuevo() {
   const nav = useNavigate();
   const { id } = useParams();
   const demo = useDemo();
-  const order = demo.state.orders.find((o) => o.id === id) || demo.state.orders.find((o) => o.status === "por aceptar");
+  const order = demo.state.orders.find((o) => o.id === id && o.techId === demo.myTech?.id);
   const [msg, setMsg] = useState("");
-  if (!order) return <TechPhone><Back to="/tecnico" label="Pedido" /><p>No hay pedidos por aceptar.</p></TechPhone>;
+  const [error, setError] = useState("");
+  if (!order) return <TechPhone><Back to="/tecnico" label="Pedido" /><p>Ese pedido ya no está por aceptar.</p></TechPhone>;
   return (
     <TechPhone>
       <Back to="/tecnico" label="Pedido nuevo" />
-      <span className="mode">App del técnico</span>
       <div className="card">
         <div className="kicker">Por aceptar</div>
         <h1 className="t" style={{ fontSize: 22 }}>{order.service}</h1>
         <div className="small">{demo.nameOf(order.clientId)} · {order.when}<br />{order.where} · {order.address}</div>
-        <div className="price" style={{ marginTop: 4 }}>Precio base ${order.price} · comisión ${Math.round(order.price * 0.1)} si se paga</div>
+        <div className="price" style={{ marginTop: 4 }}>Precio base ${order.price} · tú recibes ${order.price - Math.round(order.price * 0.1)} si se paga</div>
       </div>
       <div className="label">Motivo, solo si rechazas</div>
       <input className="field" value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="No puedo en ese horario" />
-      <button className="btn" onClick={() => { demo.acceptOrder(order.id); nav("/tecnico"); }}>Aceptar pedido</button>
-      <button className="btn danger" onClick={() => { demo.rejectOrder(order.id, msg); nav("/tecnico"); }}>Rechazar</button>
-      {msg && <p className="note">Motivo listo: {msg}</p>}
-      <p className="note">Aceptar lo pasa a Aceptado y Sofía lo ve. Rechazar lo pasa a Esperando técnico y se le avisa. El motivo es opcional.</p>
+      {error && <div className="err">{error}</div>}
+      <button className="btn" onClick={() => { const message = demo.acceptOrder(order.id); setError(message); if (!message) nav("/tecnico"); }}>Aceptar pedido</button>
+      <button className="btn danger" onClick={() => { const message = demo.rejectOrder(order.id, msg); setError(message); if (!message) nav("/tecnico"); }}>Rechazar</button>
     </TechPhone>
   );
 }
@@ -60,31 +56,29 @@ export function PedidoNuevo() {
 export function Estado() {
   const { id } = useParams();
   const demo = useDemo();
-  const order = demo.state.orders.find((o) => o.id === id) || demo.state.orders.find((o) => o.id === "o-pastilla");
+  const order = demo.state.orders.find((o) => o.id === id && o.techId === demo.myTech?.id);
   const labels = ["aceptado", "en camino", "en proceso", "terminado"];
   const step = Math.max(0, labels.indexOf(order?.status));
+  if (!order) return <TechPhone><Back to="/tecnico" label="Estado" /><p>Esa cita no está en tus pedidos.</p></TechPhone>;
   return (
     <TechPhone>
       <Back to="/tecnico" label="Estado" />
-      <span className="mode">App del técnico</span>
-      <h1 className="t" style={{ fontSize: 22 }}>{order?.service} · {demo.nameOf(order?.clientId)}</h1>
-      <p className="lead">Ahora: {order?.status}. El siguiente paso es el único que puedes marcar. Es la cita del {order?.when}.</p>
+      <h1 className="t" style={{ fontSize: 22 }}>{order.service} · {demo.nameOf(order.clientId)}</h1>
+      <p className="lead">{order.when} · {order.address}. Ahora: {statusLabel(order.status)}.</p>
       {labels.map((label, i) => (
         <div className="card" key={label} style={{ opacity: i < step ? 0.7 : 1 }}>
           <div className="row">
-            <b>{label}</b>
+            <b>{statusLabel(label)}</b>
             {i === step && <span className="pill info">Actual</span>}
             {i < step && <span className="pill ok">Hecho</span>}
           </div>
-          {i === 0 && step === 0 && <div className="small">Estado actual. No se puede regresar.</div>}
         </div>
       ))}
-      {order && labels.indexOf(order.status) >= 0 && labels.indexOf(order.status) < 3 ? (
-        <button className="btn" onClick={() => demo.advance(order.id)}>Marcar {labels[step + 1]}</button>
+      {labels.includes(order.status) && labels.indexOf(order.status) < 3 ? (
+        <button className="btn" onClick={() => demo.advance(order.id)}>Marcar {statusLabel(labels[step + 1])}</button>
       ) : (
-        <div className="okbox">Terminado. Pagado lo pone el pago de Ana, no este botón.</div>
+        <div className="okbox">{order.status === "pagado" ? "El cliente ya pagó." : "Terminado. El pago lo registra el cliente."}</div>
       )}
-      <p className="note">Los estados avanzan en orden: aceptado, en camino, en proceso y terminado. No se saltan ni se regresan.</p>
     </TechPhone>
   );
 }
@@ -119,85 +113,86 @@ function money(value) {
 export function Publicar() {
   const nav = useNavigate();
   const demo = useDemo();
-  const [name, setName] = useState("Revisión de corto");
-  const [price, setPrice] = useState("450");
+  const tech = demo.myTech;
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
   const [mode, setMode] = useState("A domicilio");
-  const [place, setPlace] = useState("Av. Obregón 410, Col. Centro");
+  const [place, setPlace] = useState(tech?.place || "");
   const [saved, setSaved] = useState("");
   const [error, setError] = useState("");
   return (
     <TechPhone tab="publicar">
-      <span className="mode">App del técnico</span>
       <h1 className="t">Nuevo servicio</h1>
+      <p className="lead">Se publica en tu perfil y en la búsqueda de los clientes.</p>
       <div className="label">Nombre</div>
-      <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ejemplo: Cambio de contacto" />
       <div className="label">Precio base</div>
-      <input className="field" value={price} onChange={(e) => setPrice(e.target.value)} />
+      <input className="field" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
       <div className="label">Modalidad</div>
       <div className="chips">
         {["A domicilio", "En mi punto de atención"].map((m) => (
           <button key={m} className={mode === m ? "chip on" : "chip"} onClick={() => setMode(m)}>{m}</button>
         ))}
       </div>
-      <div className="label">Tu punto de atención, por si eliges el local</div>
+      <div className="label">Punto de atención</div>
       <input className="field" value={place} onChange={(e) => setPlace(e.target.value)} />
       <button className="btn" onClick={() => {
-        const message = demo.publishService("carlos", { name, time: "40 min", home: mode === "A domicilio", price, place });
+        const message = demo.publishService(tech?.id, { name, time: "1 h", home: mode === "A domicilio", price, place });
         setError(message);
-        setSaved(message ? "" : `${name.trim()} quedó en tu perfil a $${Number(String(price).replace(/[^0-9.]/g, ""))}, ${mode === "A domicilio" ? "a domicilio" : "en tu local"}.`);
+        setSaved(message ? "" : `${name.trim()} quedó publicado a $${Number(String(price).replace(/[^0-9.]/g, ""))}.`);
+        if (!message) setName("");
       }}>Publicar servicio</button>
       {error && <div className="err">{error}</div>}
-      {saved && <div className="okbox">{saved} Ana lo ve al abrir tu perfil. Esta sesión no usa base de datos.</div>}
+      {saved && <div className="okbox">{saved}</div>}
       <button className="btn ghost" onClick={() => nav("/tecnico/refaccion")}>Publicar una refacción</button>
-      <p className="note">Al publicarse aparece en la búsqueda del usuario con su precio y su modalidad. Si publicas el mismo nombre, se actualiza el precio.</p>
     </TechPhone>
   );
 }
 
 export function Refaccion() {
   const demo = useDemo();
-  const [name, setName] = useState("Foco LED 9W");
-  const [category, setCategory] = useState("Electricidad");
-  const [price, setPrice] = useState("45");
-  const [stock, setStock] = useState("24");
-  const [place, setPlace] = useState("Av. Obregón 410, Col. Centro");
+  const tech = demo.myTech;
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState(demo.state.categories[0] || "Electricidad");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
+  const [place, setPlace] = useState(tech?.place || "");
   const [saved, setSaved] = useState("");
   const [error, setError] = useState("");
   return (
     <TechPhone>
       <Back to="/tecnico/publicar" label="Publicar" />
-      <span className="mode">App del técnico</span>
       <h1 className="t">Nueva refacción</h1>
-      <div className="upload">Foto del foco · lista</div>
       <div className="label">Nombre</div>
       <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
       <div className="label">Categoría</div>
       <div className="chips">
-        {["Electricidad", "Plomería"].map((item) => (
+        {demo.state.categories.map((item) => (
           <button key={item} className={category === item ? "chip on" : "chip"} onClick={() => setCategory(item)}>{item}</button>
         ))}
       </div>
       <div className="label">Precio</div>
-      <input className="field" value={price} onChange={(e) => setPrice(e.target.value)} />
+      <input className="field" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
       <div className="label">Existencias</div>
-      <input className="field" value={stock} onChange={(e) => setStock(e.target.value)} />
-      <div className="label">Punto de atención para recoger</div>
+      <input className="field" inputMode="numeric" value={stock} onChange={(e) => setStock(e.target.value)} />
+      <div className="label">Dónde la recogen</div>
       <input className="field" value={place} onChange={(e) => setPlace(e.target.value)} />
-      <p className="note">Al publicarse entra a la tienda con tu nombre y este stock. La refacción no paga comisión y no se envía a domicilio.</p>
       <button className="btn" onClick={() => {
-        const message = demo.publishPart("carlos", { name, category, price, stock, place });
+        const message = demo.publishPart(tech?.id, { name, category, price, stock, place });
         setError(message);
-        setSaved(message ? "" : `${name.trim()} está en la tienda con ${stock} piezas a $${Number(String(price).replace(/[^0-9.]/g, ""))}.`);
+        setSaved(message ? "" : `${name.trim()} ya está en la tienda.`);
+        if (!message) { setName(""); setPrice(""); setStock(""); }
       }}>Publicar producto</button>
       {error && <div className="err">{error}</div>}
-      {saved && <div className="okbox">{saved} Comisión $0. Esta sesión no usa base de datos.</div>}
+      {saved && <div className="okbox">{saved}</div>}
     </TechPhone>
   );
 }
 
 export function Agenda() {
   const demo = useDemo();
-  const rows = demo.state.orders.filter((o) => o.techId === "carlos" && AGENDA.has(o.status));
+  const techId = demo.myTech?.id;
+  const rows = demo.state.orders.filter((o) => o.techId === techId && AGENDA.has(o.status));
   const groups = [];
   rows.forEach((order) => {
     const [day, time] = String(order.when).split(" · ");
@@ -208,9 +203,8 @@ export function Agenda() {
   });
   return (
     <TechPhone tab="agenda">
-      <span className="mode">App del técnico</span>
       <h1 className="t">Agenda</h1>
-      <p className="lead">Citas de hoy y las próximas, por fecha y hora. Si aceptas, avanzas o el usuario cancela, esta lista cambia.</p>
+      <p className="lead">Citas abiertas, agrupadas por el día que eligió el cliente.</p>
       {groups.length === 0 && <div className="card">No tienes citas abiertas.</div>}
       {groups.map((group) => (
         <div key={group.day}>
@@ -229,8 +223,9 @@ export function Agenda() {
 
 export function Ganancias() {
   const demo = useDemo();
-  const services = demo.state.orders.filter((o) => o.techId === "carlos" && o.paid);
-  const parts = demo.state.payments.filter((p) => p.techId === "carlos" && p.kind === "refaccion" && p.status === "Pagado");
+  const techId = demo.myTech?.id;
+  const services = demo.state.orders.filter((o) => o.techId === techId && o.paid);
+  const parts = demo.state.payments.filter((p) => p.techId === techId && p.kind === "refaccion" && p.status === "Pagado");
   const lines = [
     ...services.map((order) => {
       const commission = Math.round(order.price * 0.1);
@@ -239,10 +234,9 @@ export function Ganancias() {
     ...parts.map((payment) => ({ id: payment.id, title: payment.concept.replace(" · refacción", ""), who: demo.nameOf(payment.clientId), total: payment.total, commission: 0, receive: payment.total, part: true })),
   ];
   const total = lines.reduce((sum, line) => sum + line.receive, 0);
-  const reviews = demo.state.reviews.filter((review) => review.techId === "carlos");
+  const reviews = demo.state.reviews.filter((review) => review.techId === techId);
   return (
     <TechPhone tab="ganancias">
-      <span className="mode">App del técnico</span>
       <h1 className="t">Ganancias</h1>
       <div className="total">
         <div className="kicker">Por recibir de lo ya pagado</div>
@@ -270,25 +264,30 @@ export function Ganancias() {
 
 export function PerfilTecnico() {
   const nav = useNavigate();
+  const demo = useDemo();
+  const tech = demo.myTech;
+  const me = demo.me;
   return (
     <TechPhone tab="perfil">
-      <span className="mode">App del técnico</span>
-      <h1 className="t">Carlos Méndez</h1>
-      <p className="lead">Electricista verificado<br />carlos.mendez@gmail.com · 653 330 1944</p>
+      <h1 className="t">{tech?.name || me?.name}</h1>
+      <p className="lead">{tech?.oficio} verificado<br />{me?.email} · {tech?.phone || me?.phone}</p>
       <div className="card">
         <div className="kicker">Zona</div>
-        <div>Col. Centro. La zona es la colonia donde atiende.</div>
+        <div>{tech?.zone}</div>
       </div>
       <div className="card">
         <div className="kicker">Punto de atención</div>
-        <b>Av. Obregón 410, Col. Centro</b>
+        <b>{tech?.place}</b>
         <div className="small">San Luis Río Colorado</div>
       </div>
-      <div className="card">
-        <div className="kicker">Sesión</div>
-        <div className="small">Cerrar sesión está en Perfil. Esa pestaña va siempre en la barra de abajo.</div>
-      </div>
-      <button className="btn ghost" onClick={() => nav("/app/entrar")}>Cerrar sesión</button>
+      <div className="sec">Servicios publicados</div>
+      {(tech?.services || []).map((service) => (
+        <div className="card" key={service.id}>
+          <div className="row"><b>{service.name}</b><span className="price">${service.price}</span></div>
+          <div className="small">{service.home ? "A domicilio" : "En su local"} · {service.time}</div>
+        </div>
+      ))}
+      <button className="btn ghost" onClick={() => { demo.logout(); nav("/app/entrar"); }}>Cerrar sesión</button>
     </TechPhone>
   );
 }

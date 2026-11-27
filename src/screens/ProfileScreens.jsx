@@ -6,46 +6,94 @@ import { useDemo } from "../demo";
 export function Perfil() {
   const nav = useNavigate();
   const demo = useDemo();
-  const app = demo.state.applications.find((a) => a.userId === demo.me?.id);
+  const me = demo.me;
+  const app = demo.state.applications.find((a) => a.userId === me?.id);
+  const buys = demo.state.payments.filter((p) => p.clientId === me?.id && p.kind === "refaccion" && p.status === "Pagado");
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ name: me?.name || "", phone: me?.phone || "" });
+  const [error, setError] = useState("");
+  const rejected = app?.status === "rechazada";
+  const pending = app?.status === "pendiente";
   return (
     <Phone tab="perfil">
-      <h1 className="t">Ana García</h1>
-      <p className="lead">ana.garcia@gmail.com · 653 120 4488</p>
-      <div className="okbox">Sigues como cliente. Aún no eres técnica.</div>
+      <h1 className="t">{me?.name}</h1>
+      <p className="lead">{me?.email} · {me?.phone}</p>
+      {editing ? (
+        <>
+          <div className="label">Nombre</div>
+          <input className="field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <div className="label">Teléfono</div>
+          <input className="field" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          {error && <div className="err">{error}</div>}
+          <button className="btn" onClick={() => {
+            const message = demo.updateProfile(form);
+            setError(message);
+            if (!message) setEditing(false);
+          }}>Guardar</button>
+        </>
+      ) : (
+        <button className="btn ghost" onClick={() => { setForm({ name: me?.name || "", phone: me?.phone || "" }); setEditing(true); }}>Editar datos</button>
+      )}
       <div className="sec">Compras de refacciones</div>
-      <div className="card">
-        <div className="small">Foco LED 9W · 2 piezas · recoges con Carlos · $90 · pagado</div>
-      </div>
-      <div className="sec">Solicitud de técnico</div>
-      <div className="card">
-        <span className={`pill ${app?.status === "rechazada" ? "bad" : "warn"}`}>{app?.status || "sin solicitud"}</span>
-        <p className="small">{app?.status === "rechazada" ? `Rechazada. Motivo: ${app.reason} Sigues como clienta.` : "La solicitud está en revisión. Sigues como clienta."}</p>
-      </div>
-      <button className="btn" onClick={() => nav("/app/oficio")}>Corregir solicitud</button>
-      <p className="note">Botón de unirse como técnico. Si la solicitud ya fue rechazada, como la de Ana el 14 nov, pasa a Corregir solicitud.</p>
-      <button className="btn ghost" onClick={() => nav("/app/entrar")}>Cerrar sesión</button>
+      {buys.length === 0 && <p className="note">Todavía no has pagado refacciones.</p>}
+      {buys.map((buy) => (
+        <div className="card" key={buy.id}>
+          <div className="small">{buy.concept} · ${buy.total} · pagado · recoges con {demo.nameOf(buy.techId)}</div>
+        </div>
+      ))}
+      <div className="sec">Trabajar como técnico</div>
+      {!app && <p className="lead">Si quieres publicar servicios, envía tu oficio y una identificación.</p>}
+      {app && (
+        <div className="card">
+          <span className={`pill ${rejected ? "bad" : pending ? "warn" : "ok"}`}>{app.status}</span>
+          <p className="small">{rejected ? `Rechazada. ${app.reason}` : pending ? "La solicitud está en revisión. Sigues como cliente." : "Tu solicitud fue aprobada. Cierra sesión y entra de nuevo."}</p>
+        </div>
+      )}
+      <button className="btn" onClick={() => nav("/app/oficio")}>{rejected ? "Corregir solicitud" : pending ? "Ver solicitud" : "Quiero ser técnico"}</button>
+      <button className="btn ghost" onClick={() => { demo.logout(); nav("/app/entrar"); }}>Cerrar sesión</button>
     </Phone>
   );
 }
 
 export function Oficio() {
   const nav = useNavigate();
+  const demo = useDemo();
+  const saved = demo.state.applicationDraft;
+  const [form, setForm] = useState({
+    oficio: saved?.oficio || "",
+    phone: saved?.phone || demo.me?.phone || "",
+    zone: saved?.zone || "",
+    photo: saved?.photo || "",
+    idFile: saved?.idFile || "",
+  });
+  const [error, setError] = useState("");
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   return (
     <Phone>
       <Back to="/app/perfil" label="Ser técnico" />
       <div className="kicker">Paso 1 de 2</div>
       <h1 className="t">Tu oficio</h1>
       <div className="label">Oficio</div>
-      <input className="field" defaultValue="Jardinera" />
+      <input className="field" value={form.oficio} onChange={set("oficio")} placeholder="Ejemplo: Jardinero" />
       <div className="label">Teléfono</div>
-      <input className="field" defaultValue="653 120 4488" />
+      <input className="field" value={form.phone} onChange={set("phone")} />
       <div className="label">Zona</div>
-      <input className="field" defaultValue="Col. Sonora" />
+      <input className="field" value={form.zone} onChange={set("zone")} placeholder="Colonia donde atiendes" />
       <div className="label">Foto de perfil</div>
-      <div className="upload">Foto de Ana · lista para enviar</div>
+      <input className="field" type="file" accept="image/*" onChange={(e) => setForm((f) => ({ ...f, photo: e.target.files?.[0]?.name || "" }))} />
+      {form.photo && <p className="note">{form.photo}</p>}
       <div className="label">Identificación oficial</div>
-      <div className="upload">INE frente · solo la verá el administrador</div>
-      <button className="btn" onClick={() => nav("/app/servicios-tecnico")}>Continuar a servicios</button>
+      <input className="field" type="file" accept="image/*" onChange={(e) => setForm((f) => ({ ...f, idFile: e.target.files?.[0]?.name || "" }))} />
+      {form.idFile && <p className="note">{form.idFile} · solo la ve el administrador</p>}
+      {error && <div className="err">{error}</div>}
+      <button className="btn" onClick={() => {
+        if (!form.oficio.trim() || !form.phone.trim() || !form.zone.trim() || !form.idFile) {
+          setError("Faltan el oficio, el teléfono, la zona o la identificación.");
+          return;
+        }
+        demo.setApplicationDraft({ ...saved, ...form });
+        nav("/app/servicios-tecnico");
+      }}>Continuar a servicios</button>
     </Phone>
   );
 }
@@ -53,46 +101,56 @@ export function Oficio() {
 export function ServiciosTecnico() {
   const nav = useNavigate();
   const demo = useDemo();
+  const saved = demo.state.applicationDraft;
+  const [place, setPlace] = useState(saved?.place || "");
+  const [services, setServices] = useState(saved?.services?.length ? saved.services : [{ name: "", price: "", home: true }]);
   const [error, setError] = useState("");
+  const update = (index, patch) => setServices((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   return (
     <Phone>
       <Back to="/app/oficio" label="Ser técnico" />
       <div className="kicker">Paso 2 de 2</div>
       <h1 className="t">Servicios y precio</h1>
       <p className="lead">Cada servicio lleva precio base y si sales a domicilio o atiendes en tu local.</p>
-      <div className="card">
-        <div className="row"><b>Corte de pasto</b><span className="pill info">A domicilio</span></div>
-        <div className="price">$300</div>
-      </div>
-      <div className="card">
-        <div className="row"><b>Poda de arbustos</b><span className="pill mute">En mi punto de atención</span></div>
-        <div className="price">$250</div>
-      </div>
+      {services.map((service, index) => (
+        <div className="card" key={index}>
+          <div className="label">Servicio</div>
+          <input className="field" value={service.name} onChange={(e) => update(index, { name: e.target.value })} placeholder="Ejemplo: Corte de pasto" />
+          <div className="label">Precio base</div>
+          <input className="field" inputMode="numeric" value={service.price} onChange={(e) => update(index, { price: e.target.value.replace(/[^0-9]/g, "") })} />
+          <div className="chips">
+            <button className={service.home ? "chip on" : "chip"} onClick={() => update(index, { home: true })}>A domicilio</button>
+            <button className={!service.home ? "chip on" : "chip"} onClick={() => update(index, { home: false })}>En mi local</button>
+          </div>
+        </div>
+      ))}
+      <button className="btn ghost" onClick={() => setServices((rows) => [...rows, { name: "", price: "", home: true }])}>Agregar otro servicio</button>
       <div className="label">Punto de atención</div>
-      <input className="field" defaultValue="Calle 7 215, Col. Sonora, San Luis Río Colorado" />
+      <input className="field" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Calle y colonia" />
       {error && <div className="err">{error}</div>}
       <button className="btn" onClick={() => {
-        const message = demo.submitApplication({ oficio: "Jardinera", phone: "653 120 4488", zone: "Col. Sonora", place: "Calle 7 215, Col. Sonora", serviceName: "Corte de pasto", price: "300" });
+        const message = demo.submitApplication({ ...saved, place, services });
         setError(message);
         if (!message) nav("/app/perfil");
       }}>Enviar solicitud</button>
-      <p className="note">Con todo completo queda en Pendiente. Si falta un precio o la identificación, no se envía.</p>
     </Phone>
   );
 }
 
 export function Rechazada() {
   const nav = useNavigate();
+  const demo = useDemo();
+  const app = demo.state.applications.find((a) => a.userId === demo.me?.id && a.status === "rechazada");
   return (
     <Phone>
       <div className="avatar" style={{ background: "#a11f1f", margin: "8px 0" }}>!</div>
       <h1 className="t">Solicitud rechazada</h1>
       <div className="card">
         <div className="kicker">Motivo del administrador</div>
-        <p className="small">La identificación no se lee. Sube otra foto de la INE, de frente y con buena luz.</p>
-        <div className="small">Fernando Velázquez · 14 nov 2026 · 17:55</div>
+        <p className="small">{app?.reason || "No hay una solicitud rechazada en tu cuenta."}</p>
+        {app?.at && <div className="small">{app.at}</div>}
       </div>
-      <p className="lead">Puedes corregir los datos y reenviar. La solicitud vuelve a Pendiente. Mientras tanto sigues como clienta.</p>
+      <p className="lead">Puedes corregir los datos y reenviar. Mientras tanto sigues como cliente.</p>
       <button className="btn" onClick={() => nav("/app/oficio")}>Corregir y reenviar</button>
       <button className="btn ghost" onClick={() => nav("/app/perfil")}>Volver al perfil</button>
     </Phone>
@@ -101,23 +159,19 @@ export function Rechazada() {
 
 export function Avisos() {
   const nav = useNavigate();
-  const items = [
-    ["Solicitud en revisión.", "Llegó al enviarla, el 14 nov a las 16:40. A las 17:55 se rechazó: la identificación no se lee.", "/app/rechazada"],
-    ["Carlos va en camino.", "Revisión de corto · dom 15 · 10:00. Ya no se puede cancelar.", "/app/citas/camino"],
-    ["Diego marcó el servicio como terminado.", "Falta tu confirmación para pagar $500.", "/app/citas/listo"],
-    ["Rosa rechazó la poda.", "El pedido quedó en Esperando técnico. Elige otro técnico o cancélalo. Motivo: no puedo en ese horario.", "/app/citas/esperando"],
-    ["Tienes un servicio sin pagar.", "No podrás contratar otro hasta pagar la revisión de falla.", "/app/paga-primero"],
-  ];
+  const demo = useDemo();
+  const items = demo.alerts();
   return (
     <Phone tab="inicio">
       <div className="row">
         <h1 className="t">Avisos</h1>
         <button className="link" onClick={() => nav("/app")}>Inicio</button>
       </div>
-      {items.map(([title, body, to]) => (
-        <button className="card" key={title} onClick={() => nav(to)}>
-          <b>{title}</b>
-          <div className="small">{body}</div>
+      {items.length === 0 && <p className="note">No tienes avisos nuevos.</p>}
+      {items.map((item) => (
+        <button className="card" key={item.id} onClick={() => nav(item.to)}>
+          <b>{item.title}</b>
+          <div className="small">{item.body}</div>
         </button>
       ))}
     </Phone>

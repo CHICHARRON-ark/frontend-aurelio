@@ -3,38 +3,57 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Back, Phone, Stars } from "../ui";
 import { useDemo } from "../demo";
 
-const SERVICES = [
-  { id: "corto", name: "Revisión de corto", time: "Cerca de 1 h", where: "A domicilio", price: 450, home: true },
-  { id: "pastilla", name: "Cambio de pastilla", time: "40 min", where: "En su local", price: 280, home: false },
-  { id: "contactos", name: "Instalación de contactos", time: "1 h", where: "A domicilio", price: 350, home: true },
-];
+function nextDays(count) {
+  const fmt = new Intl.DateTimeFormat("es-MX", { weekday: "short", day: "numeric", month: "short" });
+  return Array.from({ length: count }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() + i);
+    const label = fmt.format(date).replace(".", "");
+    if (i === 0) return `Hoy · ${label}`;
+    if (i === 1) return `Mañana · ${label}`;
+    return label;
+  });
+}
+
+const HOURS = ["9:00", "10:00", "11:00", "16:30", "18:00"];
+
+function routeFor(user) {
+  if (window.parent !== window) {
+    if (user?.role === "tecnico") return "/tecnico";
+    return "/app";
+  }
+  if (user?.role === "tecnico") return "/tecnico";
+  if (user?.role === "admin") return "/admin";
+  return "/app";
+}
 
 export function Registro() {
   const nav = useNavigate();
   const demo = useDemo();
-  const [form, setForm] = useState({ name: "Ana García", email: "ana@empresa.com", phone: "653 120 4488", password: "corta" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [error, setError] = useState("");
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   return (
-    <Phone>
-      <Back to="/app/entrar" label="Crear cuenta" />
+    <Phone bare>
+      <div className="avatar" style={{ margin: "8px 0" }}>S</div>
       <h1 className="t">Regístrate</h1>
       <p className="lead">Para contratar servicios y comprar refacciones en San Luis Río Colorado.</p>
       <div className="label">Nombre</div>
-      <input className="field" value={form.name} onChange={set("name")} />
+      <input className="field" value={form.name} onChange={set("name")} autoComplete="name" />
       <div className="label">Correo</div>
-      <input className="field" value={form.email} onChange={set("email")} />
+      <input className="field" value={form.email} onChange={set("email")} autoComplete="email" />
       {error && <div className="err">{error}</div>}
       <div className="label">Teléfono</div>
-      <input className="field" value={form.phone} onChange={set("phone")} />
+      <input className="field" value={form.phone} onChange={set("phone")} autoComplete="tel" />
       <div className="label">Contraseña</div>
-      <input className="field" type="password" value={form.password} onChange={set("password")} />
-      <p className="note">Mínimo 8 caracteres. ServiFix no la guarda en texto plano.</p>
+      <input className="field" type="password" value={form.password} onChange={set("password")} autoComplete="new-password" />
+      <p className="note">Puedes crear la cuenta con los campos vacíos.</p>
       <button className="btn" onClick={() => {
         const message = demo.register(form);
         setError(message);
-        if (!message) nav("/app/entrar");
+        if (!message) nav("/app");
       }}>Crear cuenta</button>
+      <button className="btn ghost" onClick={() => nav("/app/entrar")}>Ya tengo cuenta</button>
     </Phone>
   );
 }
@@ -42,26 +61,30 @@ export function Registro() {
 export function Entrar() {
   const nav = useNavigate();
   const demo = useDemo();
-  const [email, setEmail] = useState("ana.garcia@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   return (
-    <Phone>
+    <Phone bare>
       <div className="avatar" style={{ margin: "8px 0" }}>S</div>
       <h1 className="t">Entra a ServiFix</h1>
       <p className="lead">Para contratar, comprar y seguir tu servicio.</p>
       <div className="label">Correo</div>
-      <input className="field" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input className="field" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
       <div className="label">Contraseña</div>
-      <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <p className="note">La sesión de la app dura 7 días. Después hay que volver a entrar. Demo: ana.garcia@gmail.com · servifix</p>
+      <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
       <button className="btn" onClick={() => {
         const message = demo.login(email, password, false);
         setError(message);
-        if (!message) nav("/app");
+        if (!message) {
+          const user = demo.state.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+            || demo.state.users.find((u) => u.role === "cliente");
+          nav(routeFor(user));
+        }
       }}>Entrar</button>
       <button className="btn ghost" onClick={() => nav("/app/registro")}>Crear cuenta</button>
       {error && <div className="err" style={{ marginTop: 8 }}>{error}</div>}
+      <p className="note">Cualquier correo y contraseña abre la app. Si el correo existe, entra esa cuenta.</p>
     </Phone>
   );
 }
@@ -69,27 +92,34 @@ export function Entrar() {
 export function Inicio() {
   const nav = useNavigate();
   const demo = useDemo();
-  const found = demo.state.filters.query.trim() ? demo.searchTechs() : [];
+  const alerts = demo.alerts();
+  const query = demo.state.filters.query.trim();
+  const found = query ? demo.searchTechs("Todos") : [];
+  const featured = [...demo.state.techs]
+    .filter((t) => !demo.state.hiddenTechs.includes(t.id) && t.services.length)
+    .sort((a, b) => b.rating - a.rating || b.jobs - a.jobs)
+    .slice(0, 3);
+  const first = demo.me?.name?.split(" ")[0] || "";
   return (
     <Phone tab="inicio">
       <div className="row">
         <div>
-          <p className="hello">Hola, {demo.me?.name?.split(" ")[0] || "Ana"}</p>
+          <p className="hello">Hola, {first}</p>
           <h1 className="t">¿Qué necesitas resolver hoy?</h1>
         </div>
         <button className="sq" onClick={() => nav("/app/avisos")} aria-label="Avisos">
-          🔔<span className="nbadge">5</span>
+          🔔{alerts.length > 0 && <span className="nbadge">{alerts.length}</span>}
         </button>
       </div>
       <div className="search">
-        <input className="input" placeholder="Ejemplo: fuga, luz, pasto" value={demo.state.filters.query} onChange={(e) => demo.setQuery(e.target.value)} />
+        <input className="input" placeholder="Oficio, servicio o técnico" value={demo.state.filters.query} onChange={(e) => demo.setQuery(e.target.value)} />
         <button className="sq" onClick={() => nav("/app/filtros")} aria-label="Filtros">☰</button>
       </div>
       <p className="small">San Luis Río Colorado</p>
-      {found.length > 0 && found.map((t) => (
+      {found.map((t) => (
         <TechRow key={t.id} initials={t.initials} name={t.name} meta={`${t.oficio} · ${demo.modality(t)}`} stars={Math.round(t.rating)} line={`${t.rating} · desde $${demo.fromPrice(t)}`} onClick={() => nav(`/app/tecnico/${t.id}`)} />
       ))}
-      {demo.state.filters.query.trim() && found.length === 0 && <p className="note">Ningún técnico coincide con ese nombre.</p>}
+      {query && found.length === 0 && <p className="note">Nada coincide con “{query}”.</p>}
       <div className="grid2">
         {[
           ["⚡", "Electricista", "Luz, contactos, cortos"],
@@ -111,10 +141,11 @@ export function Inicio() {
       </button>
       <div className="row">
         <div className="sec" style={{ margin: 0 }}>Técnicos destacados</div>
-        <button className="link" onClick={() => nav("/app/lista/Electricista")}>Ver todos</button>
+        <button className="link" onClick={() => nav("/app/lista/Todos")}>Ver todos</button>
       </div>
-      <TechRow initials="CM" name="Carlos Méndez" meta="Electricista · a domicilio" stars={5} line="4.9 · desde $280" onClick={() => nav("/app/tecnico/carlos")} />
-      <TechRow initials="LH" name="Luis Herrera" meta="Plomero · en su local" stars={4} line="4.8 · desde $320" onClick={() => nav("/app/tecnico/luis")} />
+      {featured.map((t) => (
+        <TechRow key={t.id} initials={t.initials} name={t.name} meta={`${t.oficio} · ${demo.modality(t)}`} stars={Math.round(t.rating)} line={`${t.rating} · desde $${demo.fromPrice(t)}`} onClick={() => nav(`/app/tecnico/${t.id}`)} />
+      ))}
     </Phone>
   );
 }
@@ -142,26 +173,25 @@ export function Filtros() {
   const demo = useDemo();
   const max = demo.state.filters.maxPrice;
   const min = demo.state.filters.minRating;
-  const pass = demo.searchTechs("Electricista");
+  const pass = demo.state.techs.filter((t) => !demo.state.hiddenTechs.includes(t.id) && t.services.length && demo.fromPrice(t) <= max && t.rating >= min);
   return (
     <Phone>
       <Back to="/app" label="Filtros" />
       <h1 className="t">Afina la búsqueda</h1>
-      <p className="lead">El ícono ☰ del inicio abre esta pantalla. La cobertura sigue siendo San Luis Río Colorado.</p>
+      <p className="lead">El precio y la calificación se aplican a todos los oficios en San Luis Río Colorado.</p>
       <div className="label">Precio base máximo</div>
-      <input className="field" value={`$${max}`} onChange={(e) => demo.setFilters({ maxPrice: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 })} />
-      <p className="note">Solo entran técnicos cuyo precio desde no pase de este monto.</p>
+      <input className="field" inputMode="numeric" value={max} onChange={(e) => demo.setFilters({ maxPrice: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 })} />
       <div className="label">Calificación mínima</div>
       <div className="chips">
-        {[3, 4, 4.5].map((n) => (
+        {[3, 4, 4.5, 5].map((n) => (
           <button key={n} className={min === n ? "chip on" : "chip"} onClick={() => demo.setFilters({ minRating: n })}>{n.toFixed(1)}</button>
         ))}
       </div>
       <div className="card flat">
-        <b>Con estos filtros</b>
-        <p className="small">{pass.length ? pass.map((t) => `${t.name.split(" ")[0]} (${t.rating} · desde $${demo.fromPrice(t)})`).join(" y ") + " sí entran." : "Nadie cumple las dos condiciones."} Queda fuera quien cobre desde más de ${max} o tenga menos de {min.toFixed(1)}.</p>
+        <b>{pass.length} técnico{pass.length === 1 ? "" : "s"} coinciden</b>
+        <p className="small">{pass.length ? pass.map((t) => t.name.split(" ")[0]).join(", ") : "Nadie cumple las dos condiciones."}</p>
       </div>
-      <button className="btn" onClick={() => { demo.setFilters({ active: true }); nav("/app/lista/Electricista"); }}>Aplicar filtros</button>
+      <button className="btn" onClick={() => { demo.setFilters({ active: true }); nav("/app/lista/Todos"); }}>Aplicar filtros</button>
       <button className="btn ghost" onClick={() => demo.setFilters({ maxPrice: 400, minRating: 4, query: "", active: false })}>Limpiar</button>
     </Phone>
   );
@@ -170,19 +200,25 @@ export function Filtros() {
 export function Listado() {
   const nav = useNavigate();
   const { oficio } = useParams();
-  const trade = oficio || "Electricista";
+  const trade = oficio || "Todos";
   const demo = useDemo();
-  const [name, setName] = useState(demo.state.filters.query);
-  const list = demo.searchTechs(trade).filter((t) => t.name.toLowerCase().includes(name.trim().toLowerCase()));
+  const [name, setName] = useState("");
+  const list = demo.searchTechs(trade).filter((t) => {
+    const q = name.trim().toLowerCase();
+    if (!q) return true;
+    return [t.name, t.oficio, ...t.services.map((s) => s.name)].join(" ").toLowerCase().includes(q);
+  });
   return (
     <Phone>
-      <Back to="/app" label={trade} />
-      <p className="lead">{demo.state.filters.active ? `${list.length} técnicos verificados. Entran con precio base de hasta $${demo.state.filters.maxPrice} y calificación mínima de ${demo.state.filters.minRating.toFixed(1)}.` : `${list.length} técnicos verificados de este oficio.`}</p>
-      <input className="field" placeholder="Buscar por nombre" value={name} onChange={(e) => setName(e.target.value)} />
-      <div className="chips">
-        <span className="chip on">Precio base máx. ${demo.state.filters.maxPrice}</span>
-        <span className="chip on">Calificación mín. ★ {demo.state.filters.minRating.toFixed(1)}</span>
-      </div>
+      <Back to="/app" label={trade === "Todos" ? "Técnicos" : trade} />
+      <p className="lead">{demo.state.filters.active ? `${list.length} técnicos. Precio base hasta $${demo.state.filters.maxPrice} y calificación mínima de ${demo.state.filters.minRating.toFixed(1)}.` : `${list.length} técnicos verificados${trade === "Todos" ? "" : " de este oficio"}.`}</p>
+      <input className="field" placeholder="Buscar por nombre o servicio" value={name} onChange={(e) => setName(e.target.value)} />
+      {demo.state.filters.active && (
+        <div className="chips">
+          <span className="chip on">Precio base máx. ${demo.state.filters.maxPrice}</span>
+          <span className="chip on">Calificación mín. ★ {demo.state.filters.minRating.toFixed(1)}</span>
+        </div>
+      )}
       {list.map((t) => (
         <button className="card" key={t.id} onClick={() => nav(`/app/tecnico/${t.id}`)}>
           <div className="who">
@@ -196,7 +232,7 @@ export function Listado() {
           <div className="price" style={{ marginTop: 6 }}>Desde ${demo.fromPrice(t)}</div>
         </button>
       ))}
-      {list.length === 0 && <p className="note">Nadie coincide con el nombre y los filtros.</p>}
+      {list.length === 0 && <p className="note">Nadie coincide con esa búsqueda.</p>}
     </Phone>
   );
 }
@@ -205,9 +241,11 @@ export function Detalle() {
   const nav = useNavigate();
   const { id } = useParams();
   const demo = useDemo();
-  const tech = demo.techById(id || "carlos");
+  const tech = demo.techById(id);
   const [sel, setSel] = useState(tech?.services[0]);
-  if (!tech || !sel) return <Phone><p>No se encontró al técnico.</p></Phone>;
+  const reviews = demo.state.reviews.filter((r) => r.techId === tech?.id);
+  if (!tech || !tech.services.length) return <Phone><Back to="/app" label="Técnico" /><p>No se encontró al técnico.</p></Phone>;
+  if (!sel) return <Phone><Back to="/app" label="Técnico" /><p>Este técnico todavía no publica servicios.</p></Phone>;
   const blocked = Boolean(demo.debt);
   return (
     <Phone>
@@ -232,11 +270,14 @@ export function Detalle() {
         </button>
       ))}
       <div className="sec">Reseñas</div>
-      <div className="card">
-        <b>Elena Cruz</b>
-        <div><Stars value={5} /></div>
-        <div className="small">Llegó a tiempo y explicó la falla.</div>
-      </div>
+      {reviews.length === 0 && <p className="note">Todavía no hay reseñas de servicios pagados.</p>}
+      {reviews.map((review) => (
+        <div className="card" key={review.id}>
+          <b>{demo.nameOf(review.clientId)}</b>
+          <div><Stars value={review.stars} /></div>
+          <div className="small">{review.text}</div>
+        </div>
+      ))}
       {blocked && <div className="err">Tienes “{demo.debt.service}” terminada y sin pagar. Contratar no crea otro pedido.</div>}
       <button className="btn" onClick={() => {
         if (blocked) { nav("/app/paga-primero"); return; }
@@ -252,36 +293,40 @@ export function Detalle() {
 export function Domicilio() {
   const nav = useNavigate();
   const demo = useDemo();
-  const [day, setDay] = useState("Mañana · lun 16");
+  const days = nextDays(4);
+  const [day, setDay] = useState(days[1]);
   const [hour, setHour] = useState("10:00");
-  const [address, setAddress] = useState("Calle 5 y Av. Juárez, Col. Comercial");
+  const [address, setAddress] = useState(demo.me?.address || "");
+  const [error, setError] = useState("");
   const draft = demo.state.draft;
+  const tech = demo.techById(draft?.techId);
+  if (!draft?.techId) return <Phone><Back to="/app" label="Contratar" /><p>Elige un servicio antes de agendar.</p></Phone>;
   return (
     <Phone>
-      <Back to="/app/carlos" label="Contratar" />
+      <Back to={`/app/tecnico/${draft.techId}`} label="Contratar" />
       <div className="kicker">Paso 1 de 2 · a domicilio</div>
       <h1 className="t">¿Dónde y cuándo?</h1>
-      <p className="lead">{draft?.service || "Revisión de corto"} con {demo.techById(draft?.techId)?.name || "el técnico"}. Precio base ${draft?.price || 450}. Este servicio sí va a tu domicilio.</p>
+      <p className="lead">{draft.service} con {tech?.name}. Precio base ${draft.price}.</p>
       <div className="label">Dirección en San Luis Río Colorado</div>
-      <input className="field" value={address} onChange={(e) => setAddress(e.target.value)} />
+      <input className="field" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Calle, número y colonia" />
       <div className="label">Día</div>
       <div className="chips">
-        {["Hoy · dom 15", "Mañana · lun 16", "Mar 17"].map((d) => (
+        {days.map((d) => (
           <button key={d} className={day === d ? "chip on" : "chip"} onClick={() => setDay(d)}>{d}</button>
         ))}
       </div>
       <div className="label">Hora</div>
       <div className="chips">
-        {["9:00", "10:00", "16:30", "18:00"].map((h) => (
+        {HOURS.map((h) => (
           <button key={h} className={hour === h ? "chip on" : "chip"} onClick={() => setHour(h)}>{h}</button>
         ))}
       </div>
+      {error && <div className="err">{error}</div>}
       <button className="btn" onClick={() => {
-        if (!address.trim()) return;
+        if (!address.trim()) { setError("Escribe la dirección."); return; }
         demo.setDraft({ address, when: `${day} · ${hour}`, home: true });
         nav("/app/precio");
       }}>Continuar</button>
-      <p className="note">Siguiente pantalla: el precio base, antes de agendar. No se cobra ahora.</p>
     </Phone>
   );
 }
@@ -289,35 +334,36 @@ export function Domicilio() {
 export function Local() {
   const nav = useNavigate();
   const demo = useDemo();
-  const [day, setDay] = useState("Mañana · lun 16");
+  const days = nextDays(3);
+  const [day, setDay] = useState(days[1]);
   const [hour, setHour] = useState("11:00");
   const draft = demo.state.draft;
   const tech = demo.techById(draft?.techId);
+  if (!draft?.techId) return <Phone><Back to="/app" label="Contratar" /><p>Elige un servicio antes de agendar.</p></Phone>;
   return (
     <Phone>
-      <Back to="/app/carlos" label="Contratar" />
+      <Back to={`/app/tecnico/${draft.techId}`} label="Contratar" />
       <div className="kicker">Paso 1 de 2 · en el local</div>
       <h1 className="t">En su punto de atención</h1>
-      <p className="lead">{draft?.service || "El servicio"} con {tech?.name || "el técnico"}. Precio base ${draft?.price || 280}. No hace falta tu dirección.</p>
+      <p className="lead">{draft.service} con {tech?.name}. Precio base ${draft.price}.</p>
       <div className="card">
         <div className="kicker">El servicio es aquí</div>
-        <b>Punto de atención de {tech?.name || "el técnico"}</b>
-        <div className="small">{tech?.place || "Av. Obregón 410, Col. Centro"}<br />San Luis Río Colorado, Sonora</div>
+        <b>{tech?.place}</b>
+        <div className="small">San Luis Río Colorado, Sonora</div>
       </div>
       <div className="label">Día</div>
       <div className="chips">
-        {["Hoy · dom 15", "Mañana · lun 16"].map((d) => (
+        {days.map((d) => (
           <button key={d} className={day === d ? "chip on" : "chip"} onClick={() => setDay(d)}>{d}</button>
         ))}
       </div>
       <div className="label">Hora</div>
       <div className="chips">
-        {["9:00", "11:00", "16:30"].map((h) => (
+        {HOURS.map((h) => (
           <button key={h} className={hour === h ? "chip on" : "chip"} onClick={() => setHour(h)}>{h}</button>
         ))}
       </div>
       <button className="btn" onClick={() => { demo.setDraft({ when: `${day} · ${hour}`, home: false, address: tech?.place }); nav("/app/precio"); }}>Continuar</button>
-      <p className="note">La cita queda con el punto de atención del técnico, no con una dirección tuya.</p>
     </Phone>
   );
 }
@@ -325,22 +371,23 @@ export function Local() {
 export function Precio() {
   const nav = useNavigate();
   const demo = useDemo();
+  const [error, setError] = useState("");
   const draft = demo.state.draft;
   const tech = demo.techById(draft?.techId);
-  const price = draft?.price || 450;
+  if (!draft?.service) return <Phone><Back to="/app" label="Contratar" /><p>No hay una cita por confirmar.</p></Phone>;
+  const price = draft.price;
   const commission = Math.round(price * 0.1);
   const labor = price - commission;
   return (
     <Phone>
-      <Back to="/app/domicilio" label="Contratar" />
+      <Back to={draft.home ? "/app/domicilio" : "/app/local"} label="Contratar" />
       <div className="kicker">Paso 2 de 2</div>
       <h1 className="t">Revisa el precio</h1>
-      <p className="small">Intento · todavía no es una cita</p>
       <div className="card">
-        <b>{tech?.name || "Técnico"}</b>
-        <div className="small">{draft?.service || "Servicio"} · {draft?.home ? "a domicilio" : "en su local"}</div>
-        <div className="small">{draft?.when || "Lun 16 · 10:00"}</div>
-        <div className="small">{draft?.address || tech?.place}</div>
+        <b>{tech?.name}</b>
+        <div className="small">{draft.service} · {draft.home ? "a domicilio" : "en su local"}</div>
+        <div className="small">{draft.when}</div>
+        <div className="small">{draft.address || tech?.place}</div>
       </div>
       <div className="sec">Desglose del precio base</div>
       <div className="card">
@@ -348,52 +395,57 @@ export function Precio() {
         <div className="row"><span>Comisión 10%</span><b>${commission}</b></div>
         <div className="row"><b>Total</b><b>${price}</b></div>
       </div>
-      <p className="note">Mano de obra ${labor} + comisión ${commission} = ${price}. Tú pagas ese total. No es un cargo aparte y no se cobra ahora.</p>
+      <p className="note">Pagas ${price} cuando el trabajo quede terminado. La comisión ya va incluida.</p>
+      {demo.debt && <div className="err">Tienes “{demo.debt.service}” terminada y sin pagar. Esta cita no se crea hasta saldarla.</div>}
+      {error && <div className="err">{error}</div>}
       <button className="btn" onClick={() => {
         const result = demo.schedule();
-        nav(result === "debt" ? "/app/no-agendo" : "/app/citas");
+        if (result === "debt") { nav("/app/no-agendo"); return; }
+        if (result) { setError(result); return; }
+        nav("/app/citas");
       }}>Agendar por ${price}</button>
-      <button className="btn ghost" onClick={() => nav("/app/domicilio")}>Corregir datos</button>
-      <div className="err">Ana tiene la revisión de falla terminada y sin pagar. Agendar no crea esta cita.</div>
+      <button className="btn ghost" onClick={() => nav(draft.home ? "/app/domicilio" : "/app/local")}>Corregir datos</button>
     </Phone>
   );
 }
 
 export function NoAgendo() {
   const nav = useNavigate();
+  const demo = useDemo();
+  const debt = demo.debt;
+  if (!debt) return <Phone><Back to="/app/citas" label="Citas" /><p>Ya no tienes un servicio sin pagar.</p><button className="btn" onClick={() => nav("/app")}>Buscar un técnico</button></Phone>;
   return (
     <Phone>
-      <Back to="/app/precio" label="Contratar" />
+      <Back to="/app" label="Contratar" />
       <h1 className="t">No se agendó.</h1>
-      <p className="lead">La revisión de corto del lun 16 a las 10:00 no quedó en Por aceptar. Tienes “Revisión de falla” terminada y sin pagar desde el sáb 14.</p>
+      <p className="lead">Primero hay que pagar el servicio que ya quedó terminado.</p>
       <div className="card">
         <div className="kicker">Sigue sin pagar</div>
-        <b>Revisión de falla · $500</b>
-        <div className="small">Diego Ramos · sáb 14 · 11:00</div>
+        <b>{debt.service} · ${debt.price}</b>
+        <div className="small">{demo.nameOf(debt.techId)} · {debt.when}</div>
       </div>
-      <button className="btn" onClick={() => nav("/app/pago")}>Ir a pagar $500</button>
+      <button className="btn" onClick={() => nav("/app/pago")}>Ir a pagar ${debt.price}</button>
       <button className="btn ghost" onClick={() => nav("/app/citas")}>Volver a mis citas</button>
-      <p className="note">Sofía R. sí dejó una revisión de corto en Por aceptar, lun 16 a las 18:00. Ella no debe un servicio terminado, y Carlos la ve en Pedidos.</p>
     </Phone>
   );
 }
 
 export function PagaPrimero() {
   const nav = useNavigate();
+  const demo = useDemo();
+  const debt = demo.debt;
+  if (!debt) return <Phone><Back to="/app" label="Contratar" /><p>Ya puedes contratar. No tienes servicios sin pagar.</p><button className="btn" onClick={() => nav("/app")}>Ver técnicos</button></Phone>;
   return (
     <Phone>
-      <Back to="/app/carlos" label="Contratar" />
+      <Back to="/app" label="Contratar" />
       <h1 className="t">Primero paga el servicio terminado.</h1>
-      <p className="lead">Tienes “Revisión de falla” con Diego Ramos en estado Terminado, por $500. No se crea este pedido nuevo.</p>
+      <p className="lead">Tienes “{debt.service}” con {demo.nameOf(debt.techId)} por ${debt.price}. No se crea otro pedido hasta pagarlo.</p>
       <div className="card">
-        <div className="kicker">Pedido sin pagar</div>
-        <div className="row"><b>Revisión de falla</b><span className="pill warn">Terminado</span></div>
-        <div className="small">Diego Ramos · sáb 14 · 11:00</div>
-        <div className="price">$500</div>
+        <div className="row"><b>{debt.service}</b><span className="pill warn">Terminado</span></div>
+        <div className="small">{demo.nameOf(debt.techId)} · {debt.when}</div>
+        <div className="price">${debt.price}</div>
       </div>
-      <button className="btn" onClick={() => nav("/app/pago")}>Ir a pagar $500</button>
-      <button className="btn" disabled>Contratar otro servicio · desactivado</button>
-      <p className="note">Ese botón está desactivado. Cuando el pedido quede Pagado, vuelve a poder usarse. Cancelado o Pagado no bloquean.</p>
+      <button className="btn" onClick={() => nav("/app/pago")}>Ir a pagar ${debt.price}</button>
     </Phone>
   );
 }

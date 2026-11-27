@@ -1,0 +1,123 @@
+{
+  "users": [
+    { "id": "ana", "name": "Ana García", "email": "ana.garcia@gmail.com", "phone": "653 120 4488", "password": "servifix", "role": "cliente" },
+    { "id": "mariana", "name": "Mariana Solís", "email": "mariana.solis@gmail.com", "phone": "653 214 7781", "password": "servifix", "role": "cliente" },
+    { "id": "luis-p", "name": "Luis P.", "email": "luis.perez@outlook.com", "phone": "653 111 1111", "password": "servifix", "role": "cliente" },
+    { "id": "sofia", "name": "Sofía R.", "email": "sofia.r@hotmail.com", "phone": "653 222 2222", "password": "servifix", "role": "cliente" },
+    { "id": "elena", "name": "Elena Cruz", "email": "elena.cruz@yahoo.com", "phone": "653 333 3333", "password": "servifix", "role": "cliente" },
+    { "id": "carlos", "name": "Carlos Méndez", "email": "carlos.mendez@gmail.com", "phone": "653 330 1944", "password": "servifix", "role": "tecnico" },
+    { "id": "fernando", "name": "Fernando Velázquez", "email": "fernando.velazquez@gmail.com", "phone": "653 100 0001", "password": "servifix", "role": "admin" }
+  ],
+  "techs": [
+    {
+      "id": "carlos", "name": "Carlos Méndez", "oficio": "Electricista", "initials": "CM", "rating": 4.9, "jobs": 128,
+      "zone": "Col. Centro", "place": "Av. Obregón 410, Col. Centro", "phone": "653 330 1944",
+      "email": "carlos.mendez@gmail.com", "bio": "Reviso la falla, te digo el precio y dejo la luz funcionando.",
+      "services": [
+        { "id": "corto", "name": "Revisión de corto", "time": "Cerca de 1 h", "home": true, "price": 450 },
+        { "id": "pastilla", "name": "Cambio de pastilla", "time": "40 min", "home": false, "price": 280 },
+        { "id": "contactos", "name": "Instalación de contactos", "time": "1 h", "home": true, "price": 350 }
+      ]
+    },
+    {
+      "id": "andres", "name": "Andrés Vidal", "oficio": "Electricista", "initials": "AV", "rating": 4.6, "jobs": 54,
+      "zone": "Col. Comercial", "place": "Calle 9 120, Col. Comercial", "phone": "653 200 1100",
+      "email": "andres.vidal@gmail.com", "bio": "Atiendo en mi local.",
+      "services": [{ "id": "contacto-local", "name": "Revisión de contacto", "time": "40 min", "home": false, "price": 250 }]
+    },
+    {
+      "id": "ivan", "name": "Iván Cruz", "oficio": "Electricista", "initials": "IC", "rating": 4.8, "jobs": 40,
+      "zone": "Col. Sonora", "place": "Calle 4 80", "phone": "653 200 2200", "email": "ivan.cruz@gmail.com", "bio": "Trabajos de instalación.",
+      "services": [{ "id": "tablero", "name": "Cambio de tablero", "time": "2 h", "home": true, "price": 520 }]
+    },
+    {
+      "id": "luis", "name": "Luis Herrera", "oficio": "Plomero", "initials": "LH", "rating": 4.8, "jobs": 96,
+      "zone": "Col. Comercial", "place": "Calle 3.ª 90", "phone": "653 200 3300", "email": "luis.herrera@outlook.com", "bio": "Fugas, llaves y destapes.",
+      "services": [
+        { "id": "destape", "name": "Destape de lavabo", "time": "1 h", "home": false, "price": 320 },
+        { "id": "llave", "name": "Cambio de llave", "time": "40 min", "home": false, "price": 180 }
+      ]
+    },
+    {
+      "id": "diego", "name": "Diego Ramos", "oficio": "Mecánico", "initials": "DR", "rating": 4.6, "jobs": 61,
+      "zone": "Col. Comercial", "place": "Av. Juárez 220, Col. Comercial", "phone": "653 200 4400",
+      "email": "diego.ramos@gmail.com", "bio": "Batería y fallas.",
+      "services": [{ "id": "falla", "name": "Revisión de falla", "time": "1 h", "home": true, "price": 500 }]
+    },
+    {
+      "id": "pedro", "name": "Pedro Salas", "oficio": "Mecánico", "initials": "PS", "rating": 3.8, "jobs": 12,
+      "zone": "Col. Sonora", "place": "Calle 2 10", "phone": "653 200 5500", "email": "pedro.salas@hotmail.com", "bio": "Servicio básico.",
+      "services": [{ "id": "bateria", "name": "Cambio de batería", "time": "30 min", "home": false, "price": 200 }]
+    },
+    {
+      "id": "rosa", "name": "Rosa Núñez", "oficio": "Jardinero", "initials": "RN", "rating": 4.7, "jobs": 74,
+      "zone": "Col. Sonora", "place": "Calle 7 215, Col. Sonora", "phone": "653 200 6600",
+      "email": "rosa.nunez@gmail.com", "bio": "Poda y pasto.",
+      "services": [
+        { "id": "pasto", "name": "Corte de pasto", "time": "1 h", "home": true, "price": 300 },
+        { "id": "poda", "name": "Poda de arbustos", "time": "1 h", "home": false, "price": 250 }
+      ]
+    },
+    {
+      "id": "lucia", "name": "Lucía Mora", "oficio": "Jardinero", "initials": "LM", "rating": 4.5, "jobs": 38,
+      "zone": "Col. Comercial", "place": "Calle 8 50", "phone": "653 200 7700", "email": "lucia.mora@gmail.com",
+      "bio": "Jardinera verificada. Sale a domicilio.",
+      "services": [{ "id": "poda-lucia", "name": "Poda de patio", "time": "1 h", "home": true, "price": 300 }]
+    },
+    {
+      "id": "jorge", "name": "Jorge Peña", "oficio": "Mecánico", "initials": "JP", "rating": 5, "jobs": 0,
+      "zone": "Col. Comercial", "place": "Calle 15 20", "phone": "653 200 8800",
+      "email": "jorge.pena@gmail.com", "bio": "Aprobado el 14 nov 2026.",
+      "services": [{ "id": "bateria-jorge", "name": "Revisión de batería", "time": "40 min", "home": false, "price": 250 }]
+    }
+  ],
+  "products": [
+    { "id": "foco", "name": "Foco LED 9W", "category": "Electricidad", "price": 45, "stock": 22, "techId": "carlos", "place": "Obregón 410", "detail": "Luz blanca, para socket común. Se recoge en Av. Obregón 410, Col. Centro." },
+    { "id": "cinta", "name": "Cinta de teflón", "category": "Plomería", "price": 18, "stock": 40, "techId": "luis", "place": "Calle 3.ª 90", "detail": "Se recoge con Luis Herrera." },
+    { "id": "llave-paso", "name": "Llave de paso 1/2", "category": "Plomería", "price": 89, "stock": 12, "techId": "luis", "place": "Calle 3.ª 90", "detail": "Se recoge con Luis Herrera." },
+    { "id": "bateria", "name": "Batería 12V", "category": "Mecánica", "price": 1890, "stock": 3, "techId": "diego", "place": "Sonora 15", "detail": "Se recoge con Diego Ramos." }
+  ],
+  "catalog": [
+    { "id": "cat-corto", "name": "Revisión de corto", "rubro": "Electricidad", "price": 450 },
+    { "id": "cat-fuga", "name": "Reparación de fuga", "rubro": "Plomería", "price": 420 },
+    { "id": "cat-pasto", "name": "Corte de pasto", "rubro": "Jardín", "price": 300 },
+    { "id": "cat-falla", "name": "Revisión de falla", "rubro": "Mecánica", "price": 500 }
+  ],
+  "categories": ["Electricidad", "Plomería", "Jardín", "Mecánica"],
+  "orders": [
+    { "id": "o-corto", "clientId": "ana", "techId": "carlos", "service": "Revisión de corto", "when": "Dom 15 · 10:00", "where": "a domicilio", "address": "Calle 5 y Av. Juárez", "price": 450, "status": "en camino", "paid": false },
+    { "id": "o-pastilla", "clientId": "ana", "techId": "carlos", "service": "Cambio de pastilla", "when": "Lun 16 · 11:00", "where": "en su local", "address": "Av. Obregón 410", "price": 280, "status": "aceptado", "paid": false },
+    { "id": "o-poda", "clientId": "ana", "techId": "rosa", "service": "Poda de patio", "when": "Mar 17 · 9:00", "where": "a domicilio", "address": "Calle 5 y Av. Juárez, Col. Comercial", "price": 300, "status": "esperando", "paid": false, "reason": "no puedo en ese horario" },
+    { "id": "o-falla", "clientId": "ana", "techId": "diego", "service": "Revisión de falla", "when": "Sáb 14 · 11:00", "where": "a domicilio", "address": "Av. Juárez 220, Col. Comercial", "price": 500, "status": "terminado", "paid": false },
+    { "id": "o-llave", "clientId": "ana", "techId": "luis", "service": "Cambio de llave", "when": "Lun 2 · 9:00", "where": "en su local", "address": "Calle 3.ª 90", "price": 180, "status": "cancelado", "paid": false },
+    { "id": "o-contacto", "clientId": "ana", "techId": "carlos", "service": "Revisión de contacto", "when": "Lun 2 · 12:00", "where": "a domicilio", "address": "Calle 5 y Av. Juárez", "price": 160, "status": "cancelado", "paid": false },
+    { "id": "o-sofia", "clientId": "sofia", "techId": "carlos", "service": "Revisión de corto", "when": "Lun 16 · 18:00", "where": "a domicilio", "address": "Calle 9 40, Col. Comercial", "price": 450, "status": "por aceptar", "paid": false },
+    { "id": "o-elena", "clientId": "elena", "techId": "carlos", "service": "Instalación de contactos", "when": "Mié 12 · 9:00", "where": "a domicilio", "address": "Col. Centro", "price": 350, "status": "pagado", "paid": true },
+    { "id": "o-pastilla-sofia", "clientId": "sofia", "techId": "carlos", "service": "Cambio de pastilla", "when": "Mié 5 · 11:00", "where": "en su local", "address": "Av. Obregón 410", "price": 280, "status": "pagado", "paid": true },
+    { "id": "o-destape", "clientId": "luis-p", "techId": "luis", "service": "Destape de lavabo", "when": "Mié 12 · 16:00", "where": "en su local", "address": "Calle 3.ª 90", "price": 320, "status": "pagado", "paid": true }
+  ],
+  "payments": [
+    { "id": "1040", "clientId": "luis-p", "techId": "luis", "concept": "Destape de lavabo", "total": 320, "commission": 32, "status": "Pagado", "kind": "servicio", "orderId": "o-destape" },
+    { "id": "1036", "clientId": "sofia", "techId": "carlos", "concept": "Cambio de pastilla", "total": 280, "commission": 28, "status": "Pagado", "kind": "servicio", "orderId": "o-pastilla-sofia" },
+    { "id": "1031", "clientId": "elena", "techId": "carlos", "concept": "Instalación de contactos", "total": 350, "commission": 35, "status": "Pagado", "kind": "servicio", "orderId": "o-elena" },
+    { "id": "1038", "clientId": "ana", "techId": "carlos", "concept": "Foco LED 9W · refacción", "total": 90, "commission": 0, "status": "Pagado", "kind": "refaccion" },
+    { "id": "1042", "clientId": "ana", "techId": "diego", "concept": "Revisión de falla", "total": 500, "commission": 50, "status": "Por pagar", "kind": "servicio", "orderId": "o-falla" }
+  ],
+  "reviews": [
+    { "id": "r1", "orderId": "o-destape", "clientId": "luis-p", "techId": "luis", "stars": 5, "text": "Dejó el lavabo funcionando.", "paymentId": "1040" },
+    { "id": "r2", "orderId": "o-pastilla-sofia", "clientId": "sofia", "techId": "carlos", "stars": 4, "text": "El precio fue el mismo que al agendar.", "paymentId": "1036" },
+    { "id": "r3", "orderId": "o-elena", "clientId": "elena", "techId": "carlos", "stars": 5, "text": "Llegó a tiempo y explicó la falla.", "paymentId": "1031" }
+  ],
+  "applications": [
+    { "id": "sol-mariana", "userId": "mariana", "name": "Mariana Solís", "oficio": "Jardinera", "phone": "653 214 7781", "zone": "Col. Comercial", "place": "Calle 12 88", "when": "12 nov 2026", "status": "pendiente", "services": "mantenimiento de jardín $480 a domicilio y riego $220 en su local" },
+    { "id": "sol-ana", "userId": "ana", "name": "Ana García", "oficio": "Jardinera", "phone": "653 120 4488", "zone": "Col. Sonora", "place": "Calle 7 215", "when": "14 nov 2026", "status": "rechazada", "reason": "La identificación no se lee. Sube otra foto de la INE, de frente y con buena luz.", "at": "14 nov 2026 · 17:55", "services": "Corte de pasto $300 a domicilio y poda $250 en su punto de atención" }
+  ],
+  "log": [
+    { "date": "14 nov 2026", "time": "18:42", "module": "Catálogo", "action": "Intento bloqueado: eliminar “Revisión de corto”. Tiene pedidos activos." },
+    { "date": "14 nov 2026", "time": "18:40", "module": "Catálogo", "action": "Intento bloqueado: eliminar “Revisión de falla”. Tiene pedidos activos." },
+    { "date": "14 nov 2026", "time": "18:10", "module": "Validación", "action": "Aprobó a Jorge Peña. La cuenta pasó a técnico y dejó de ser cliente." },
+    { "date": "14 nov 2026", "time": "17:55", "module": "Validación", "action": "Rechazó a Ana García. Motivo: la identificación no se lee." },
+    { "date": "14 nov 2026", "time": "17:20", "module": "Catálogo", "action": "Editó el precio de “Cinta de teflón” a $18." },
+    { "date": "14 nov 2026", "time": "16:05", "module": "Usuarios", "action": "Intento bloqueado: eliminar al técnico Carlos Méndez. Tiene pedidos activos." }
+  ]
+}

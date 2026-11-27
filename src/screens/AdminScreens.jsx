@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminShell, ModeSwitch, Stars } from "../ui";
+import { AdminShell, Stars } from "../ui";
 import { useDemo } from "../demo";
 
 function Shell({ path, children }) {
@@ -10,8 +10,8 @@ function Shell({ path, children }) {
 export function Acceso() {
   const nav = useNavigate();
   const demo = useDemo();
-  const [email, setEmail] = useState("ana.garcia@gmail.com");
-  const [password, setPassword] = useState("servifix");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   return (
     <div className="login-wrap">
@@ -61,7 +61,6 @@ export function Acceso() {
         </g>
       </svg>
       <div className="login-stack">
-        <ModeSwitch active="admin" />
         <div className="login-card">
           <div className="brand" style={{ color: "#14221f" }}>
             <div className="mark">S</div>
@@ -76,13 +75,12 @@ export function Acceso() {
           <div className="label">Contraseña</div>
           <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           {error && <div className="err">{error}</div>}
-          <p className="note">Demo del panel: fernando.velazquez@gmail.com · servifix. Ana recibe el mismo aviso que una contraseña incorrecta.</p>
           <button className="btn" onClick={() => {
             const message = demo.login(email, password, true);
             setError(message);
             if (!message) nav("/admin");
           }}>Entrar</button>
-          <p className="note">Ana es clienta y la contraseña podría ser la real. El texto es el mismo que si la contraseña estuviera mal: no dice el rol ni si la cuenta existe. La sesión del panel vence a las 24 horas.</p>
+          <p className="note">Cualquier correo y contraseña abre el panel.</p>
         </div>
       </div>
     </div>
@@ -137,30 +135,44 @@ function IncomeChart() {
 }
 
 export function Dashboard() {
-  const demand = [
-    ["Carlos Méndez", "Electricista · 128 servicios", "4.9"],
-    ["Luis Herrera", "Plomero · 96 servicios", "4.8"],
-    ["Rosa Núñez", "Jardinera · 74 servicios", "4.7"],
-    ["Diego Ramos", "Mecánico · 61 servicios", "4.6"],
-  ];
+  const demo = useDemo();
+  const paid = demo.state.payments.filter((p) => p.status === "Pagado");
+  const sales = paid.reduce((sum, p) => sum + p.total, 0);
+  const services = paid.filter((p) => p.kind !== "refaccion").reduce((sum, p) => sum + p.total, 0);
+  const parts = paid.filter((p) => p.kind === "refaccion").reduce((sum, p) => sum + p.total, 0);
+  const commission = paid.reduce((sum, p) => sum + p.commission, 0);
+  const techs = demo.state.techs.filter((t) => !demo.state.hiddenTechs.includes(t.id));
+  const open = demo.state.orders.filter((o) => !["pagado", "cancelado"].includes(o.status)).length;
+  const closed = demo.state.orders.length - open;
+  const demand = [...techs].sort((a, b) => b.jobs - a.jobs || b.rating - a.rating).slice(0, 4);
+  const recent = demo.state.payments.slice(0, 6);
   return (
     <Shell path="/admin">
       <h1>Dashboard</h1>
-      <p className="lead">Ventas, comisiones y técnicos con más demanda. Números de demostración. Stripe en pruebas.</p>
+      <p className="lead">Ventas, comisiones y técnicos con más demanda, con los pedidos que hay ahora.</p>
       <div className="kpis">
-        <div className="kpi"><span>VENTAS TOTALES</span><b>$48,200</b><em>Servicios $40,000 · refacciones $8,200</em></div>
-        <div className="kpi"><span>COMISIONES</span><b>$4,000</b><em>10% de los servicios pagados</em></div>
-        <div className="kpi"><span>TÉCNICOS ACTIVOS</span><b>18</b><em>Con perfil publicado</em></div>
-        <div className="kpi"><span>CITAS</span><b>36</b><em>12 abiertas · 24 cerradas</em></div>
+        <div className="kpi"><span>VENTAS TOTALES</span><b>{money(sales)}</b><em>Servicios {money(services)} · refacciones {money(parts)}</em></div>
+        <div className="kpi"><span>COMISIONES</span><b>{money(commission)}</b><em>10% de los servicios pagados</em></div>
+        <div className="kpi"><span>TÉCNICOS ACTIVOS</span><b>{techs.length}</b><em>Con perfil publicado</em></div>
+        <div className="kpi"><span>CITAS</span><b>{demo.state.orders.length}</b><em>{open} abiertas · {closed} cerradas</em></div>
       </div>
       <div className="split">
-        <IncomeChart />
+        <div className="panel">
+          <h3>Pagos recientes</h3>
+          {recent.length === 0 && <p className="small">Todavía no hay pagos.</p>}
+          {recent.map((payment) => (
+            <div className="row" style={{ margin: "8px 0" }} key={payment.id}>
+              <div><b>{payment.concept}</b><div className="small">{demo.nameOf(payment.clientId)}</div></div>
+              <b>{money(payment.total)}</b>
+            </div>
+          ))}
+        </div>
         <div className="panel">
           <h3>Más demanda</h3>
-          {demand.map(([name, meta, score]) => (
-            <div className="row" style={{ margin: "8px 0" }} key={name}>
-              <div><b>{name}</b><div className="small">{meta}</div></div>
-              <b>{score}</b>
+          {demand.map((tech) => (
+            <div className="row" style={{ margin: "8px 0" }} key={tech.id}>
+              <div><b>{tech.name}</b><div className="small">{tech.oficio} · {tech.jobs} servicios</div></div>
+              <b>{tech.rating}</b>
             </div>
           ))}
         </div>
@@ -174,10 +186,12 @@ export function Validacion() {
   const [reason, setReason] = useState("");
   const [flash, setFlash] = useState("");
   const queue = demo.state.applications.filter((a) => a.status !== "aprobada");
+  const pending = queue.find((a) => a.status === "pendiente");
+  const rejected = queue.filter((a) => a.status === "rechazada");
   return (
     <Shell path="/admin/validacion">
       <h1>Validación de técnicos</h1>
-      <p className="lead">Revisa la solicitud antes de aprobar. Rechazar pide un motivo. Aprobar cambia la cuenta a técnico y deja de usarse como cliente.</p>
+      <p className="lead">Aprobar cambia la cuenta a técnico. Rechazar pide un motivo y la persona sigue como cliente.</p>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Persona</th><th>Oficio</th><th>Solicitud</th><th>Estado</th></tr></thead>
@@ -185,38 +199,31 @@ export function Validacion() {
             {queue.map((a) => (
               <tr key={a.id}><td>{a.name}</td><td>{a.oficio}</td><td>{a.when}</td><td><span className={`pill ${a.status === "pendiente" ? "warn" : "bad"}`}>{a.status}</span></td></tr>
             ))}
+            {queue.length === 0 && <tr><td colSpan={4}>No hay solicitudes por revisar.</td></tr>}
           </tbody>
         </table>
       </div>
-      <div className="panel" style={{ marginTop: 10 }}>
-        <div className="kicker">Solicitud abierta</div>
-        <h3>Mariana Solís · Jardinera</h3>
-        <p className="small">Teléfono 653 214 7781. Zona: Col. Comercial. Servicios: mantenimiento de jardín $480 a domicilio y riego $220 en su local, Calle 12 88.</p>
-        <div className="row" style={{ margin: "8px 0", flexWrap: "wrap" }}>
-          <button className="btn slim" onClick={() => { const pending = queue.find((a) => a.status === "pendiente"); if (pending) { demo.approveApplication(pending.id); setFlash(`${pending.name} pasó a técnico y dejó de usarse como clienta.`); } }}>Aprobar y pasar a técnico</button>
-          <button className="btn slim ghost" onClick={() => setFlash("Identificación visible solo para el administrador. No hay archivo real en esta vista.")}>Ver identificación</button>
-          <span className="small">Solo tú puedes ver esta identificación.</span>
+      {pending && (
+        <div className="panel" style={{ marginTop: 10 }}>
+          <div className="kicker">Solicitud abierta</div>
+          <h3>{pending.name} · {pending.oficio}</h3>
+          <p className="small">Teléfono {pending.phone}. Zona: {pending.zone}. Punto de atención: {pending.place}. Servicios: {pending.services}.</p>
+          {pending.idFile && <p className="small">Identificación: {pending.idFile}. Solo el administrador ve este dato.</p>}
+          <div className="row" style={{ margin: "8px 0", flexWrap: "wrap" }}>
+            <button className="btn slim" onClick={() => { demo.approveApplication(pending.id); setFlash(`${pending.name} ya es técnico.`); }}>Aprobar y pasar a técnico</button>
+          </div>
+          <div className="label">Motivo, obligatorio para rechazar</div>
+          <input className="field" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ejemplo: la identificación no se lee." />
+          <button className="btn slim danger" onClick={() => setFlash(demo.rejectApplication(pending.id, reason) || `Se rechazó a ${pending.name}.`)}>Rechazar con este motivo</button>
+          {flash && <div className="okbox" style={{ marginTop: 8 }}>{flash}</div>}
         </div>
-        <div className="label">Motivo, obligatorio para rechazar</div>
-        <input className="field" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ejemplo: la identificación no se lee. Sube otra foto." />
-        <button
-          className="btn slim danger"
-          onClick={() => {
-            const pending = queue.find((a) => a.status === "pendiente");
-            if (!pending) return;
-            setFlash(demo.rejectApplication(pending.id, reason));
-          }}
-        >
-          Rechazar con este motivo
-        </button>
-        {flash && <div className="okbox" style={{ marginTop: 8 }}>{flash}</div>}
-        <p className="note">Sin motivo, Rechazar no guarda. Las disputas de un servicio no se resuelven aquí: están fuera del alcance.</p>
-      </div>
-      <div className="panel" style={{ marginTop: 10 }}>
-        <h3>Ana García · Jardinera · Rechazada</h3>
-        <p className="small">Teléfono 653 120 4488. Zona: Col. Sonora. Corte de pasto $300 a domicilio y poda $250 en su punto de atención, Calle 7 215. Motivo del 14 nov 2026 a las 17:55: la identificación no se lee.</p>
-        <p className="note">Jorge Peña ya no está en la cola: se aprobó el 14 nov a las 18:10 y pasó a técnico.</p>
-      </div>
+      )}
+      {rejected.map((app) => (
+        <div className="panel" style={{ marginTop: 10 }} key={app.id}>
+          <h3>{app.name} · {app.oficio} · Rechazada</h3>
+          <p className="small">{app.services}. Motivo: {app.reason}{app.at ? ` · ${app.at}` : ""}</p>
+        </div>
+      ))}
     </Shell>
   );
 }
@@ -237,16 +244,38 @@ const PARTS = [
 export function Catalogo() {
   const demo = useDemo();
   const [blocked, setBlocked] = useState("");
+  const [catName, setCatName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ name: "", rubro: demo.state.categories[0] || "", price: "" });
+  const [editing, setEditing] = useState(null);
+  const [price, setPrice] = useState("");
   return (
     <Shell path="/admin/catalogo">
       <h1>Catálogo global</h1>
-      <p className="lead">Servicios, productos con existencias y categorías. Crear, editar o eliminar se refleja en la app.</p>
+      <p className="lead">Lo que agregues o cambies se ve en la app de clientes y técnicos.</p>
       {blocked && <div className="err">{blocked}</div>}
       <div className="chips">
-        {["Electricidad", "Plomería", "Jardín", "Mecánica"].map((c) => <span className="chip" key={c}>{c}</span>)}
-        <button className="chip">+ Categoría</button>
+        {demo.state.categories.map((c) => <span className="chip" key={c}>{c}</span>)}
       </div>
-      <div className="row"><h3 style={{ margin: "8px 0" }}>Servicios</h3><button className="btn slim">Agregar</button></div>
+      <div className="search">
+        <input className="field" placeholder="Nueva categoría" value={catName} onChange={(e) => setCatName(e.target.value)} />
+        <button className="btn slim" onClick={() => { demo.addCategory(catName); setCatName(""); }}>Agregar</button>
+      </div>
+      <div className="row"><h3 style={{ margin: "8px 0" }}>Servicios</h3><button className="btn slim" onClick={() => setAdding((v) => !v)}>{adding ? "Cerrar" : "Agregar"}</button></div>
+      {adding && (
+        <div className="panel" style={{ marginBottom: 8 }}>
+          <input className="field" placeholder="Nombre" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+          <select className="field" value={draft.rubro} onChange={(e) => setDraft({ ...draft, rubro: e.target.value })}>
+            {demo.state.categories.map((c) => <option key={c}>{c}</option>)}
+          </select>
+          <input className="field" placeholder="Precio" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} />
+          <button className="btn slim" onClick={() => {
+            const message = demo.addCatalog(draft);
+            setBlocked(message);
+            if (!message) { setDraft({ name: "", rubro: demo.state.categories[0] || "", price: "" }); setAdding(false); }
+          }}>Guardar servicio</button>
+        </div>
+      )}
       <div className="table-wrap">
         <table>
           <thead><tr><th>Nombre</th><th>Rubro</th><th>Precio</th><th></th></tr></thead>
@@ -255,9 +284,13 @@ export function Catalogo() {
               <tr key={item.id}>
                 <td>{item.name}</td>
                 <td>{item.rubro}</td>
-                <td>${item.price}</td>
+                <td>{editing === item.id ? <input className="field" value={price} onChange={(e) => setPrice(e.target.value)} /> : `$${item.price}`}</td>
                 <td>
-                  <button className="link" onClick={() => demo.updateCatalogPrice(item.id, item.price + 10)}>Editar</button>
+                  {editing === item.id ? (
+                    <button className="link" onClick={() => { demo.updateCatalogPrice(item.id, price); setEditing(null); }}>Guardar</button>
+                  ) : (
+                    <button className="link" onClick={() => { setEditing(item.id); setPrice(String(item.price)); }}>Editar</button>
+                  )}
                   {" · "}
                   <button className="link" onClick={() => setBlocked(demo.deleteCatalog(item.id))}>Eliminar</button>
                 </td>
@@ -266,7 +299,7 @@ export function Catalogo() {
           </tbody>
         </table>
       </div>
-      <div className="row"><h3 style={{ margin: "12px 0 8px" }}>Refacciones</h3><button className="btn slim">Agregar</button></div>
+      <h3 style={{ margin: "12px 0 8px" }}>Refacciones</h3>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th><th></th></tr></thead>
@@ -280,7 +313,6 @@ export function Catalogo() {
           </tbody>
         </table>
       </div>
-      <p className="note">Foco LED 9W quedó en 22 piezas: el pedido de 2 ya está pagado. El alta fue de 24.</p>
     </Shell>
   );
 }
@@ -395,7 +427,7 @@ export function Usuarios() {
           </tbody>
         </table>
       </div>
-      <p className="note">Mariana sigue como clienta mientras su solicitud está pendiente. Jorge ya está activo: la bitácora lo aprobó a las 18:10. Andrés no tiene pedidos abiertos y sí se puede eliminar. Carlos no.</p>
+      <p className="note">Un técnico con pedidos activos no se elimina. Una solicitud pendiente sigue apareciendo aquí hasta que se apruebe o se rechace.</p>
     </Shell>
   );
 }
@@ -410,7 +442,7 @@ export function Pagos() {
   return (
     <Shell path="/admin/pagos">
       <h1>Pagos</h1>
-      <p className="lead">Stripe está en modo de pruebas. ServiFix no guarda el número de tarjeta. La comisión es 10% del servicio y $0 en refacciones.</p>
+      <p className="lead">La comisión es 10% del servicio y $0 en refacciones. El número de tarjeta no se guarda.</p>
       <div className="kpis">
         <div className="kpi"><span>COBRADO</span><b>{money(cobrado)}</b><em>Servicios y refacciones</em></div>
         <div className="kpi"><span>COMISIÓN</span><b>{money(comision)}</b><em>10% solo de servicios</em></div>
@@ -434,7 +466,7 @@ export function Pagos() {
           </tbody>
         </table>
       </div>
-      <p className="note">Cobrado {paid.map((payment) => money(payment.total)).join(" + ") || "$0"} = {money(cobrado)}. Comisión {paid.map((payment) => money(payment.commission)).join(" + ") || "$0"} = {money(comision)}. Lo que sigue en Por pagar entra a cobrado cuando el cliente paga con la tarjeta de prueba.</p>
+      <p className="note">Cobrado {money(cobrado)}. Comisión {money(comision)}. Por cobrar {money(porCobrar)}.</p>
     </Shell>
   );
 }
@@ -444,12 +476,12 @@ export function Resenas() {
   const [editing, setEditing] = useState(null);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
-  const unpaid = demo.state.orders.find((order) => order.id === "o-falla" && !order.paid);
+  const unpaid = demo.state.orders.filter((order) => order.status === "terminado" && !order.paid);
   return (
     <Shell path="/admin/resenas">
       <h1>Reseñas</h1>
       <p className="lead">Solo existen reseñas de un pedido pagado, hechas por quien contrató.</p>
-      {unpaid && <div className="err">No se creó la reseña. El pedido 1042 está terminado, pero todavía no está pagado.</div>}
+      {unpaid.map((order) => <div className="err" key={order.id}>“{order.service}” de {demo.nameOf(order.clientId)} está terminado y todavía no está pagado, así que no puede tener reseña.</div>)}
       {error && <div className="err">{error}</div>}
       <div className="table-wrap">
         <table>
@@ -482,14 +514,14 @@ export function Resenas() {
           </tbody>
         </table>
       </div>
-      <p className="note">Un intento de reseñar el pedido 1042 se rechaza hasta que Ana lo pague. Después solo ella puede dejar una, de 1 a 5, y no una segunda. Editar guarda el comentario en esta sesión.</p>
+      <p className="note">Una reseña solo la escribe quien contrató, después de pagar, y no se puede repetir. Desde aquí se corrige el comentario.</p>
     </Shell>
   );
 }
 
 export function Bitacora() {
   const demo = useDemo();
-  const rows = demo.state.log.map((r) => [r.date, r.time, r.module, r.action]);
+  const rows = demo.state.log.map((r) => [r.date, r.time, r.module, r.action, r.actor]);
   return (
     <Shell path="/admin/bitacora">
       <h1>Bitácora</h1>
@@ -499,8 +531,8 @@ export function Bitacora() {
         <table>
           <thead><tr><th>Fecha</th><th>Hora</th><th>Administrador</th><th>Módulo</th><th>Acción</th></tr></thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r[1] + r[3]}><td>{r[0]}</td><td>{r[1]}</td><td>Fernando Velázquez</td><td>{r[2]}</td><td>{r[3]}</td></tr>
+            {rows.map((r, index) => (
+              <tr key={`${r[0]}-${r[1]}-${index}`}><td>{r[0]}</td><td>{r[1]}</td><td>{r[4] || "Administración"}</td><td>{r[2]}</td><td>{r[3]}</td></tr>
             ))}
           </tbody>
         </table>
@@ -512,53 +544,61 @@ export function Bitacora() {
 export function Datos() {
   const demo = useDemo();
   const [tab, setTab] = useState("Usuarios");
-  const [saved, setSaved] = useState(false);
-  const ana = demo.state.users.find((u) => u.id === "ana");
+  const [saved, setSaved] = useState("");
+  const [userId, setUserId] = useState(demo.state.users[0]?.id || "");
+  const selected = demo.state.users.find((u) => u.id === userId) || demo.state.users[0];
+  const [form, setForm] = useState({ name: selected?.name || "", email: selected?.email || "", phone: selected?.phone || "", role: selected?.role || "cliente" });
+  const choose = (id) => {
+    const user = demo.state.users.find((u) => u.id === id);
+    setUserId(id);
+    setSaved("");
+    setForm({ name: user?.name || "", email: user?.email || "", phone: user?.phone || "", role: user?.role || "cliente" });
+  };
   return (
     <Shell path="/admin/datos">
       <h1>Base de datos</h1>
-      <p className="lead">Consulta y modifica usuarios, pedidos, pagos y reseñas. La identificación de una solicitud no se muestra a nadie más.</p>
+      <p className="lead">Consulta y modifica usuarios, pedidos, pagos y reseñas.</p>
       <div className="chips">
         {["Usuarios", "Pedidos", "Pagos", "Reseñas"].map((t) => (
           <button key={t} className={tab === t ? "chip on" : "chip"} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
-      {tab === "Usuarios" && (
+      {tab === "Usuarios" && selected && (
         <div className="panel">
-          <h3>Editando a Ana García</h3>
+          <div className="label">Registro</div>
+          <select className="field" value={selected.id} onChange={(e) => choose(e.target.value)}>
+            {demo.state.users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+          </select>
           <div className="split">
             <div>
-              <div className="label">Nombre</div><input className="field" id="ana-name" defaultValue={ana?.name} />
-              <div className="label">Correo</div><input className="field" id="ana-email" defaultValue={ana?.email} />
+              <div className="label">Nombre</div>
+              <input className="field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <div className="label">Correo</div>
+              <input className="field" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
             <div>
-              <div className="label">Teléfono</div><input className="field" id="ana-phone" defaultValue={ana?.phone} />
-              <div className="label">Rol</div><input className="field" id="ana-role" defaultValue={ana?.role} />
+              <div className="label">Teléfono</div>
+              <input className="field" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <div className="label">Rol</div>
+              <select className="field" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                <option value="cliente">cliente</option>
+                <option value="tecnico">tecnico</option>
+                <option value="admin">admin</option>
+              </select>
             </div>
           </div>
-          <div className="row">
-            <button className="btn slim" onClick={() => {
-              demo.saveUser("ana", {
-                name: document.getElementById("ana-name").value,
-                email: document.getElementById("ana-email").value,
-                phone: document.getElementById("ana-phone").value,
-                role: document.getElementById("ana-role").value,
-              });
-              setSaved(true);
-            }}>Guardar cambios</button>
-            <span className="small">Un rol que no es administrador no abre esta pantalla ni el correo de Ana.</span>
-          </div>
-          {saved && <div className="okbox" style={{ marginTop: 8 }}>Cambios guardados en esta sesión. Otra cuenta no ve el correo de Ana.</div>}
+          <button className="btn slim" onClick={() => { demo.saveUser(selected.id, form); setSaved(form.name); }}>Guardar cambios</button>
+          {saved && <div className="okbox" style={{ marginTop: 8 }}>Se guardaron los datos de {saved}.</div>}
         </div>
       )}
       <div className="table-wrap" style={{ marginTop: 8 }}>
         <table>
-          <thead><tr><th>Registro</th><th>Detalle</th><th></th></tr></thead>
+          <thead><tr><th>Registro</th><th>Detalle</th></tr></thead>
           <tbody>
-            {tab === "Pedidos" && demo.state.orders.map((o) => <tr key={o.id}><td>{o.service}</td><td>{demo.nameOf(o.clientId)} · {o.status} · ${o.price}</td><td></td></tr>)}
-            {tab === "Pagos" && demo.state.payments.map((p) => <tr key={p.id}><td>{p.id}</td><td>{p.concept} · ${p.total} · comisión ${p.commission} · {p.status}</td><td></td></tr>)}
-            {tab === "Reseñas" && demo.state.reviews.map((r) => <tr key={r.id}><td>{demo.nameOf(r.clientId)}</td><td>{r.stars} estrellas · {r.text}</td><td></td></tr>)}
-            {tab === "Usuarios" && demo.state.users.map((u) => <tr key={u.id}><td>{u.name}</td><td>{u.email} · {u.role}</td><td></td></tr>)}
+            {tab === "Pedidos" && demo.state.orders.map((o) => <tr key={o.id}><td>{o.service}</td><td>{demo.nameOf(o.clientId)} · {o.status} · ${o.price}</td></tr>)}
+            {tab === "Pagos" && demo.state.payments.map((p) => <tr key={p.id}><td>{p.concept}</td><td>${p.total} · comisión ${p.commission} · {p.status}</td></tr>)}
+            {tab === "Reseñas" && demo.state.reviews.map((r) => <tr key={r.id}><td>{demo.nameOf(r.clientId)}</td><td>{r.stars} estrellas · {r.text}</td></tr>)}
+            {tab === "Usuarios" && demo.state.users.map((u) => <tr key={u.id}><td>{u.name}</td><td>{u.email} · {u.role}</td></tr>)}
           </tbody>
         </table>
       </div>

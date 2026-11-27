@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useDemo } from "./demo";
 
 const ICONS = {
   home: (
@@ -38,31 +39,20 @@ const ICONS = {
   ),
 };
 
-export function ModeSwitch({ active }) {
+function AccountBox({ tech }) {
+  const demo = useDemo();
   const nav = useNavigate();
-  const items = [
-    ["user", "Cliente", "/app"],
-    ["tech", "Técnico", "/tecnico"],
-    ["admin", "Panel", "/admin"],
-  ];
+  const person = tech ? demo.myTech || demo.me : demo.me;
+  const name = person?.name || "Cuenta";
+  const initials = person?.initials || name.slice(0, 2).toUpperCase();
   return (
-    <>
-      <div className="modes">
-        {items.map(([id, label, to]) => (
-          <button key={id} className={active === id ? "on" : ""} onClick={() => nav(to)}>
-            {label}
-          </button>
-        ))}
+    <div className="account-box">
+      <div className="avatar sm">{initials}</div>
+      <div>
+        <b>{name}</b>
+        <div className="brand-sub">{tech ? "Técnico" : "Cliente"}</div>
       </div>
-    </>
-  );
-}
-
-function Status() {
-  return (
-    <div className="statusbar">
-      <span>9:41</span>
-      <b>ServiFix</b>
+      <button className="link" onClick={() => { demo.logout(); nav("/app/entrar"); }}>Salir</button>
     </div>
   );
 }
@@ -96,33 +86,86 @@ function Tabs({ items, active, five }) {
   );
 }
 
-export function Phone({ tab, children }) {
+function RailNav({ items, active }) {
+  const nav = useNavigate();
   return (
-    <div className="stage">
-      <ModeSwitch active="user" />
-      <div className="phone">
-        <div className="screen">
-          <Status />
-          <div className="content">{children}</div>
-          {tab && <Tabs items={USER_TABS} active={tab} />}
+    <nav className="rail-links">
+      {items.map(([id, label, to]) => (
+        <button key={id} className={active === id ? "navitem on" : "navitem"} onClick={() => nav(to)}>
+          {label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function inPhone() {
+  return window.parent !== window;
+}
+
+function AppShell({ role, tab, tabs, bare, children }) {
+  const tech = role === "tech";
+  const mobile = inPhone();
+  if (bare) {
+    return (
+      <div className="bare-page">
+        <div className="bare-card">{children}</div>
+      </div>
+    );
+  }
+  if (mobile) {
+    return (
+      <div className="app-shell app-shell-mobile">
+        <div className="app-column">
+          <header className="app-header">
+            <div className="brand brand-light">
+              <div className="mark">S</div>
+              <div>
+                ServiFix
+                <div className="brand-sub">{tech ? "Técnico" : "Cliente"}</div>
+              </div>
+            </div>
+            <AccountBox tech={tech} />
+          </header>
+          <main className="content">{children}</main>
+          {tab && <Tabs items={tabs} active={tab} five={tech} />}
         </div>
+      </div>
+    );
+  }
+  return (
+    <div className="app-shell">
+      <aside className="rail-nav">
+        <div className="brand">
+          <div className="mark">S</div>
+          <div>
+            ServiFix
+            <div className="brand-sub">{tech ? "Cuenta de técnico" : "Cuenta de cliente"}</div>
+          </div>
+        </div>
+        <RailNav items={tabs} active={tab} />
+        <AccountBox tech={tech} />
+      </aside>
+      <div className="app-column">
+        <main className="content">{children}</main>
       </div>
     </div>
   );
 }
 
-export function TechPhone({ tab, children }) {
+export function Phone({ tab, bare, children }) {
   return (
-    <div className="stage">
-      <ModeSwitch active="tech" />
-      <div className="phone">
-        <div className="screen">
-          <Status />
-          <div className="content">{children}</div>
-          {tab && <Tabs items={TECH_TABS} active={tab} five />}
-        </div>
-      </div>
-    </div>
+    <AppShell role="user" tab={tab} tabs={USER_TABS} bare={bare}>
+      {children}
+    </AppShell>
+  );
+}
+
+export function TechPhone({ tab, bare, children }) {
+  return (
+    <AppShell role="tech" tab={tab} tabs={TECH_TABS} bare={bare}>
+      {children}
+    </AppShell>
   );
 }
 
@@ -172,6 +215,9 @@ const ADMIN_NAV = [
 
 export function AdminShell({ active, children }) {
   const nav = useNavigate();
+  const demo = useDemo();
+  const name = demo.me?.name || "Administrador";
+  const initials = name.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase();
   return (
     <div className="admin">
       <aside className="side">
@@ -190,21 +236,16 @@ export function AdminShell({ active, children }) {
       </aside>
       <div className="admin-main">
         <div className="topbar">
-          <div className="switch">
-            <button onClick={() => nav("/app")}>App móvil</button>
-            <button onClick={() => nav("/tecnico")}>Técnico</button>
-            <button className="on">Administración</button>
-          </div>
           <div className="whoami">
             <div className="sq" style={{ width: 34, height: 34, borderRadius: 12, fontSize: 13 }}>
-              FV
+              {initials}
             </div>
             <div>
-              Fernando Velázquez
+              {name}
               <small>Administrador</small>
             </div>
-            <button className="link" onClick={() => nav("/admin/entrar")}>Salir</button>
           </div>
+          <button className="link" onClick={() => { demo.logout(); nav("/admin/entrar"); }}>Salir</button>
         </div>
         <div className="canvas">{children}</div>
       </div>

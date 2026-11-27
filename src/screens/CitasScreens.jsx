@@ -31,7 +31,7 @@ export function Citas() {
   return (
     <Phone tab="citas">
       <h1 className="t">Citas</h1>
-      <p className="lead">San Luis Río Colorado. Cancelar solo aparece antes de que el técnico vaya en camino.</p>
+      {mine.length === 0 && <p className="note">No tienes citas. Cuando agendes un servicio, aparece aquí.</p>}
       {mine.map((o) => (
         <div className="card" key={o.id}>
           <button className="card flat" style={{ padding: 0, margin: 0 }} onClick={() => nav(`/app/citas/${o.id}`)}>
@@ -78,20 +78,21 @@ export function Cancelar() {
   const nav = useNavigate();
   const { id } = useParams();
   const demo = useDemo();
-  const order = demo.state.orders.find((o) => o.id === (id || "o-pastilla"));
+  const order = demo.state.orders.find((o) => o.id === id && o.clientId === demo.me?.id);
+  if (!order) return <Phone><Back to="/app/citas" label="Tu servicio" /><p>Esa cita ya no está.</p></Phone>;
+  const allowed = ["por aceptar", "aceptado", "esperando"].includes(order.status);
   return (
     <Phone>
-      <Back to="/app/citas/pastilla" label="Tu servicio" />
+      <Back to={`/app/citas/${order.id}`} label="Tu servicio" />
       <div className="card">
-        <div className="kicker">Lun 16 · 11:00 · en su local</div>
-        <h1 className="t" style={{ fontSize: 22 }}>{order?.service}</h1>
-        <div className="small">{demo.nameOf(order?.techId)} · precio base ${order?.price}</div>
+        <div className="kicker">{order.when} · {order.where}</div>
+        <h1 className="t" style={{ fontSize: 22 }}>{order.service}</h1>
+        <div className="small">{order.techId ? demo.nameOf(order.techId) : "Sin técnico"} · ${order.price}</div>
       </div>
-      <div className="kicker">Confirmación</div>
       <h1 className="t" style={{ fontSize: 22 }}>¿Cancelar la cita?</h1>
-      <p className="lead">Pasará a Cancelado y se avisará a Carlos. Si vuelves, el pedido sigue Aceptado. Lo mismo pide la lista cuando el estado es Esperando técnico.</p>
-      <button className="btn danger" onClick={() => { demo.cancelOrder(order.id); nav("/app/citas"); }}>Sí, cancelar cita</button>
-      <button className="btn ghost" onClick={() => nav(-1)}>No, volver</button>
+      <p className="lead">{allowed ? "Pasará a Cancelado y el técnico dejará de verla como trabajo activo." : "Esta cita ya va en camino o está cerrada, así que no se puede cancelar."}</p>
+      {allowed && <button className="btn danger" onClick={() => { demo.cancelOrder(order.id); nav("/app/citas"); }}>Sí, cancelar cita</button>}
+      <button className="btn ghost" onClick={() => nav(`/app/citas/${order.id}`)}>No, volver</button>
     </Phone>
   );
 }
@@ -172,69 +173,91 @@ export function Listo() {
 export function Pago() {
   const nav = useNavigate();
   const demo = useDemo();
-  const parts = demo.state.cart && !demo.state.cart.paid ? demo.state.cart : null;
+  const parts = demo.state.cart || null;
   const order = parts ? null : demo.debt;
-  const total = parts ? demo.state.products.find((p) => p.id === parts.productId).price * parts.qty : order?.price || 500;
-  const [card, setCard] = useState("4000 0000 0000 0002");
+  const product = parts ? demo.state.products.find((p) => p.id === parts.productId) : null;
+  const total = parts && product ? product.price * parts.qty : order?.price || 0;
+  const [card, setCard] = useState("");
+  const [exp, setExp] = useState("");
+  const [cvc, setCvc] = useState("");
   const [error, setError] = useState("");
+  if (!parts && !order) {
+    return (
+      <Phone>
+        <Back to="/app/citas" label="Pago" />
+        <h1 className="t">Nada por pagar</h1>
+        <p className="lead">No hay un servicio terminado ni un carrito pendiente.</p>
+        <button className="btn" onClick={() => nav("/app/citas")}>Ver mis citas</button>
+      </Phone>
+    );
+  }
   return (
     <Phone>
-      <Back to="/app/citas/listo" label="Pago" />
+      <Back to={parts ? "/app/carrito" : `/app/citas/${order.id}`} label="Pago" />
       <div className="total">
         <div className="kicker">Total a pagar</div>
-        <div className="big">${total}</div>
-        <div className="small">{parts ? "Refacciones · comisión $0" : `${order?.service || "Revisión de falla"} · servicio terminado`}</div>
+        <div className="big">${total.toLocaleString("es-MX")}</div>
+        <div className="small">{parts ? `${product?.name} · refacción · comisión $0` : `${order.service} · servicio terminado`}</div>
       </div>
       {error && <div className="err" style={{ marginTop: 8 }}>{error}</div>}
-      <p className="note">Stripe en modo de pruebas. ServiFix no guarda el número. Para un pago exitoso usa 4242 4242 4242 4242.</p>
-      <div className="label">Número</div>
-      <input className="field" value={card} onChange={(e) => setCard(e.target.value)} />
+      <div className="label">Número de tarjeta</div>
+      <input className="field" inputMode="numeric" autoComplete="cc-number" placeholder="16 números" value={card} onChange={(e) => setCard(e.target.value)} />
       <div className="grid2">
         <div>
           <div className="label">Vence</div>
-          <input className="field" defaultValue="12/28" />
+          <input className="field" autoComplete="cc-exp" placeholder="MM/AA" value={exp} onChange={(e) => setExp(e.target.value)} />
         </div>
         <div>
           <div className="label">CVC</div>
-          <input className="field" defaultValue="123" />
+          <input className="field" inputMode="numeric" autoComplete="cc-csc" placeholder="123" value={cvc} onChange={(e) => setCvc(e.target.value)} />
         </div>
       </div>
+      <p className="note">El cargo queda registrado en ServiFix. El número no se guarda.</p>
       <button className="btn" onClick={() => {
-        const message = demo.pay(parts ? { card, parts } : { card, orderId: order?.id });
+        const message = demo.pay(parts ? { card, exp, cvc, parts } : { card, exp, cvc, orderId: order.id });
         setError(message);
-        if (!message) nav(parts ? "/app/carrito" : "/app/calificar");
-      }}>Pagar ${total}</button>
-      <p className="note">El mismo pago sirve para un pedido de refacciones ya armado. Esas no llevan comisión.</p>
+        if (!message) nav(parts ? "/app/perfil" : `/app/calificar/${order.id}`);
+      }}>Pagar ${total.toLocaleString("es-MX")}</button>
     </Phone>
   );
 }
 
 export function Calificar() {
   const nav = useNavigate();
+  const { id } = useParams();
   const demo = useDemo();
-  const order = demo.state.orders.find((o) => o.clientId === demo.me?.id && o.paid && !demo.state.reviews.some((r) => r.orderId === o.id));
-  const [stars, setStars] = useState(4);
-  const [text, setText] = useState("Llegó a tiempo y el precio fue el de la cita.");
+  const order = demo.state.orders.find((o) => o.id === id && o.clientId === demo.me?.id)
+    || demo.state.orders.find((o) => o.clientId === demo.me?.id && o.paid && !demo.state.reviews.some((r) => r.orderId === o.id));
+  const [stars, setStars] = useState(5);
+  const [text, setText] = useState("");
   const [error, setError] = useState("");
+  if (!order) {
+    return (
+      <Phone>
+        <Back to="/app/citas" label="Tu servicio" />
+        <h1 className="t">Nada por calificar</h1>
+        <p className="lead">Solo se reseña un servicio que ya pagaste y que todavía no tiene comentario.</p>
+      </Phone>
+    );
+  }
   return (
     <Phone>
-      <Back to="/app/pago" label="Tu servicio" />
+      <Back to="/app/citas" label="Tu servicio" />
       <div className="card">
-        <div className="kicker">Sáb 14 · 11:00 · pagado</div>
-        <h1 className="t" style={{ fontSize: 22 }}>Revisión de falla</h1>
-        <div className="small">Diego Ramos · precio base $500</div>
+        <div className="kicker">{order.when} · pagado</div>
+        <h1 className="t" style={{ fontSize: 22 }}>{order.service}</h1>
+        <div className="small">{demo.nameOf(order.techId)} · ${order.price}</div>
       </div>
-      <h1 className="t" style={{ fontSize: 22 }}>¿Cómo estuvo Diego Ramos?</h1>
-      <p className="lead">Una reseña por pedido, de 1 a 5, con un comentario. Solo quien contrató y ya pagó.</p>
+      <h1 className="t" style={{ fontSize: 22 }}>¿Cómo estuvo {demo.nameOf(order.techId)}?</h1>
       <div className="chips">
         {[1, 2, 3, 4, 5].map((n) => (
           <button key={n} className={stars === n ? "chip on" : "chip"} onClick={() => setStars(n)}>{n} ★</button>
         ))}
       </div>
-      <textarea className="field" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+      <textarea className="field" rows={3} placeholder="Cuéntanos cómo te fue" value={text} onChange={(e) => setText(e.target.value)} />
       {error && <div className="err">{error}</div>}
       <button className="btn" onClick={() => {
-        const message = order ? demo.addReview(order.id, stars, text) : "No se puede crear una reseña si el pedido no está pagado.";
+        const message = demo.addReview(order.id, stars, text);
         setError(message);
         if (!message) nav("/app/citas");
       }}>Enviar reseña</button>
@@ -253,7 +276,9 @@ export function CitaDetalle() {
   const steps = ["por aceptar", "aceptado", "en camino", "en proceso", "terminado", "pagado"];
   const idx = steps.indexOf(order.status);
   if (order.status === "esperando") {
-    const options = demo.state.techs.filter((t) => t.oficio === "Jardinero" && t.id !== "rosa");
+    const known = demo.state.techs.find((t) => t.id === order.techId);
+    const oficio = order.oficio || known?.oficio;
+    const options = demo.state.techs.filter((t) => t.oficio === oficio && t.id !== order.techId && !demo.state.hiddenTechs.includes(t.id));
     return (
       <Phone>
         <Back to="/app/citas" label="Tu servicio" />
@@ -280,7 +305,7 @@ export function CitaDetalle() {
       </div>
       {idx >= 0 && <Steps items={steps.map((title, i) => ({ title: title[0].toUpperCase() + title.slice(1), state: i < idx ? "done" : i === idx ? "on" : "" }))} />}
       {order.status === "terminado" && !order.paid && <button className="btn" onClick={() => nav("/app/pago")}>Sí, el trabajo quedó listo</button>}
-      {order.paid && !demo.state.reviews.some((r) => r.orderId === order.id) && <button className="btn" onClick={() => nav("/app/calificar")}>Calificar</button>}
+      {order.paid && !demo.state.reviews.some((r) => r.orderId === order.id) && <button className="btn" onClick={() => nav(`/app/calificar/${order.id}`)}>Calificar</button>}
       {["por aceptar", "aceptado", "esperando"].includes(order.status) && <button className="btn danger" onClick={() => nav(`/app/citas/cancelar/${order.id}`)}>Cancelar pedido</button>}
       {["en camino", "en proceso", "terminado", "pagado"].includes(order.status) && <p className="note">A partir de En camino ya no existe el botón de cancelar. El seguimiento es por estados, no por mapa.</p>}
     </Phone>
@@ -308,8 +333,8 @@ export function Tienda() {
           <div className="small">Recoge con {demo.nameOf(p.techId)} · {p.place}</div>
         </button>
       ))}
-      {items.length === 0 && <p className="note">No hay refacciones de jardín en este ejemplo.</p>}
-      <p className="note">Sin entrega a domicilio. Un pedido junta refacciones del mismo técnico.</p>
+      {items.length === 0 && <p className="note">No hay refacciones en esta categoría.</p>}
+      <p className="note">Sin entrega a domicilio. Cada pedido se recoge con el técnico que publicó la pieza.</p>
     </Phone>
   );
 }
@@ -318,9 +343,10 @@ export function Foco() {
   const nav = useNavigate();
   const { id } = useParams();
   const demo = useDemo();
-  const product = demo.state.products.find((p) => p.id === (id || "foco")) || demo.state.products[0];
+  const product = demo.state.products.find((p) => p.id === id);
+  const [qty, setQty] = useState(1);
+  if (!product) return <Phone><Back to="/app/tienda" label="Refacción" /><p>Ese producto ya no está en la tienda.</p></Phone>;
   const stock = product.stock;
-  const [qty, setQty] = useState(Math.min(2, stock || 1));
   return (
     <Phone>
       <Back to="/app/tienda" label="Refacción" />
@@ -335,7 +361,7 @@ export function Foco() {
         <button onClick={() => setQty((n) => Math.min(stock, n + 1))}>+</button>
       </div>
       {qty >= stock && <div className="err" style={{ marginTop: 8 }}>No puedes pedir más de {stock}. El tope es el stock.</div>}
-      <button className="btn" onClick={() => { demo.setCart({ productId: product.id, qty, paid: false }); nav("/app/carrito"); }}>Ver carrito</button>
+      <button className="btn" disabled={stock < 1} onClick={() => { demo.setCart({ productId: product.id, qty, paid: false }); nav("/app/carrito"); }}>{stock < 1 ? "Sin existencias" : "Agregar al carrito"}</button>
     </Phone>
   );
 }
@@ -344,25 +370,38 @@ export function Carrito() {
   const nav = useNavigate();
   const demo = useDemo();
   const line = demo.state.cart;
-  const product = line ? demo.state.products.find((p) => p.id === line.productId) : demo.state.products[0];
-  const qty = line?.qty || 2;
-  const total = (product?.price || 45) * qty;
+  const product = line ? demo.state.products.find((p) => p.id === line.productId) : null;
+  if (!line || !product) {
+    return (
+      <Phone>
+        <Back to="/app/tienda" label="Carrito" />
+        <h1 className="t">Tu carrito está vacío</h1>
+        <button className="btn" onClick={() => nav("/app/tienda")}>Ver refacciones</button>
+      </Phone>
+    );
+  }
+  const qty = Math.min(line.qty, product.stock || line.qty);
+  const total = product.price * qty;
+  const setQty = (next) => demo.setCart({ ...line, qty: Math.max(1, Math.min(product.stock, next)) });
   return (
     <Phone>
-      <Back to="/app/tienda/foco" label="Carrito" />
-      <h1 className="t">Recoges con Carlos Méndez</h1>
-      <p className="lead">Av. Obregón 410, Col. Centro<br />San Luis Río Colorado · sin entrega a domicilio</p>
+      <Back to={`/app/tienda/${product.id}`} label="Carrito" />
+      <h1 className="t">Recoges con {demo.nameOf(product.techId)}</h1>
+      <p className="lead">{product.place}<br />San Luis Río Colorado · sin entrega a domicilio</p>
       <div className="card">
-        <div className="row"><b>{product?.name}</b><b>${total}</b></div>
-        <div className="small">{qty} × ${product?.price}</div>
+        <div className="row"><b>{product.name}</b><b>${total.toLocaleString("es-MX")}</b></div>
+        <div className="qty">
+          <button onClick={() => setQty(qty - 1)}>−</button>
+          <b>{qty}</b>
+          <button onClick={() => setQty(qty + 1)}>+</button>
+        </div>
       </div>
       <div className="total">
-        <div className="kicker">Total de refacciones · comisión $0</div>
-        <div className="big">${total}</div>
-        <div className="small">Producto, cantidad, precio y técnico quedan en el pedido.</div>
+        <div className="kicker">Total · comisión $0</div>
+        <div className="big">${total.toLocaleString("es-MX")}</div>
       </div>
-      <button className="btn" onClick={() => { if (!line || line.paid) return; nav("/app/pago"); }}>{line?.paid ? "Ya está pagado" : `Pagar $${total} con tarjeta`}</button>
-      <p className="note">Así se veía el carrito antes de pagar. Después de este pago, Ganancias y Pagos quedan en Pagado y el stock pasa de 24 a 22.</p>
+      <button className="btn" onClick={() => nav("/app/pago")}>Pagar ${total.toLocaleString("es-MX")} con tarjeta</button>
+      <button className="btn ghost" onClick={() => demo.setCart(null)}>Vaciar carrito</button>
     </Phone>
   );
 }

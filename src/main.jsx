@@ -5,6 +5,10 @@ import App from "./App";
 import { DemoProvider } from "./demo";
 import "./styles.css";
 
+if (window.parent !== window) {
+  document.documentElement.classList.add("in-emulator");
+}
+
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
